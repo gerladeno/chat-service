@@ -20,6 +20,7 @@ vars:
 tasks:
   default:
     cmds:
+      - task: gen
       - task: tidy
       - task: fmt
       - task: lint
@@ -73,3 +74,7 @@ tasks:
         {{range $i, $line := .DEV_TOOLS | splitLines}}
         {{if ne $line ""}}go install "{{$line}}"{{end}}
         {{end}}
+
+  gen:
+    - echo "Run go generate..."
+    - go generate ./...
