@@ -15,6 +15,7 @@ vars:
   DEV_TOOLS: |
     github.com/daixiang0/gci@v0.8.0
     mvdan.cc/gofumpt@v0.4.0
+    github.com/kazhuravlev/options-gen/cmd/options-gen@latest
 
 tasks:
   default:
