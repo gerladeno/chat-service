@@ -4,7 +4,7 @@ version: '3'
 silent: true
 
 vars:
-  GO_MODULE: github.com/gerladeno/support-chat
+  GO_MODULE: github.com/gerladeno/chat-service
   GO_FILES:
     sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "*.gen.go" | tr "\n" " "
 
