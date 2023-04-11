@@ -1,3 +1,3 @@
-module github.com/gerladeno/support-chat
+module github.com/gerladeno/chat-service
 
 go 1.20
