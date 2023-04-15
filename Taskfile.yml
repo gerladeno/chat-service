@@ -7,10 +7,21 @@ vars:
   GO_MODULE: github.com/gerladeno/chat-service
   GO_FILES:
     sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "*.gen.go" | tr "\n" " "
-
+  DOCKER_COMPOSE_PATHS: |
+    ./deploy/local/docker-compose.yml
+    ./deploy/local/docker-compose.sentry.yml
+  DOCKER_COMPOSE_CMD:
+    docker compose{{range $i, $line := .DOCKER_COMPOSE_PATHS | splitLines}}{{if ne $line ""}} -f "{{$line}}"{{end}}{{end}}
   GOLANGCI_LINT_VERSION: v1.52.2
   GOLANGCI_LINT_CACHE:
     sh: echo "$HOME/misc/caches"
+  TYPES: |
+    ChatID
+    MessageID
+    ProblemID
+    UserID
+  TYPES_PKG: types
+  TYPES_DST: ./internal/types/types.gen.go
 
   DEV_TOOLS: |
     github.com/daixiang0/gci@v0.8.0
@@ -78,3 +89,40 @@ tasks:
   gen:
     - echo "Run go generate..."
     - go generate ./...
+
+
+  gen:types:
+    cmds:
+      - echo "Generate types..."
+      - go run ./cmd/gen-types # FIXME: Дополни команду аргументами, исходя из исходника генератора.
+
+  deps:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} up -d"
+
+  deps:cmd:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} {{$.CLI_ARGS}}"
+
+  deps:status:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} ps"
+
+  deps:logs:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} logs {{$.CLI_ARGS}}"
+
+  deps:stop:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} stop"
+
+  deps:reset-psql:
+    cmds:
+      - task: deps:reset
+        vars:
+          SERVICE: postgres
+
+  deps:reset:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} rm -fsv {{.SERVICE}}"
+      - "{{.DOCKER_COMPOSE_CMD}} up -d {{.SERVICE}}"

@@ -57,6 +57,8 @@ func New(opts Options) (*Server, error) {
 	wrap(e)
 	index.addPage("/debug/pprof/", "Go std profiler")
 	index.addPage("/debug/pprof/profile?seconds=30", "Take half-min profile")
+	e.GET("/debug/error", s.SendErrorEvent)
+	index.addPage("/debug/error", "Debug Sentry error event")
 
 	e.GET("/", index.handler)
 	return s, nil
@@ -88,7 +90,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 func (s *Server) Version(eCtx echo.Context) error {
 	if err := eCtx.JSON(http.StatusOK, buildinfo.BuildInfo); err != nil {
-		return fmt.Errorf("marshalling version: %w", err)
+		return fmt.Errorf("err sending version: %w", err)
 	}
 	return nil
 }
@@ -97,6 +99,14 @@ func (s *Server) LogLevel(eCtx echo.Context) error {
 	level := eCtx.FormValue("level")
 	if err := logger.Atom.UnmarshalText([]byte(level)); err != nil {
 		return fmt.Errorf("err parsing level %s: %w", level, err)
+	}
+	return nil
+}
+
+func (s *Server) SendErrorEvent(eCtx echo.Context) error {
+	s.lg.Error("look for me in the sentry")
+	if err := eCtx.String(http.StatusOK, "event sent"); err != nil {
+		return fmt.Errorf("err sending error event text: %w", err)
 	}
 	return nil
 }

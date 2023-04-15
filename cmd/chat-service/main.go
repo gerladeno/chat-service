@@ -35,7 +35,12 @@ func run() (errReturned error) {
 		return fmt.Errorf("parse and validate config %q: %v", *configPath, err)
 	}
 
-	if err = logger.Init(logger.NewOptions(cfg.Log.Level, logger.WithProductionMode(cfg.Global.IsProd()))); err != nil {
+	if err = logger.Init(logger.NewOptions(
+		cfg.Log.Level,
+		logger.WithProductionMode(cfg.Global.IsProd()),
+		logger.WithSentryDSN(cfg.Sentry.DSN),
+		logger.WithEnv(cfg.Global.Env),
+	)); err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer logger.Sync()
