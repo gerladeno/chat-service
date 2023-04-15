@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
+
 	"github.com/gerladeno/chat-service/internal/validator"
 )
 

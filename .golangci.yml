@@ -11,7 +11,7 @@ linters-settings:
     sections:
       - standard
       - default
-
+      - "prefix(github.com/gerladeno/chat-service)"
 
   godox:
     keywords:

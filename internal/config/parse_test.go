@@ -5,9 +5,10 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/gerladeno/chat-service/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/gerladeno/chat-service/internal/config"
 )
 
 var configExamplePath string

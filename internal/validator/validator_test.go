@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/gerladeno/chat-service/internal/validator"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/gerladeno/chat-service/internal/validator"
 )
 
 type options struct {

@@ -10,6 +10,10 @@ type GlobalConfig struct {
 	Env string `toml:"env" validate:"required,oneof=dev stage prod"`
 }
 
+func (gc GlobalConfig) IsProd() bool {
+	return gc.Env == "prod"
+}
+
 type LogConfig struct {
 	Level string `toml:"level" validate:"required,oneof=debug info warn error"`
 }

@@ -38,9 +38,11 @@ func Init(opts Options) error {
 	config.NameKey = "component"
 	config.EncodeTime = zapcore.ISO8601TimeEncoder
 	config.TimeKey = "T"
+	config.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	encoder := zapcore.NewConsoleEncoder(config)
 	if opts.productionMode {
-		Atom = zap.NewAtomicLevelAt(zap.InfoLevel)
+		Atom.SetLevel(zap.InfoLevel)
+		config.EncodeLevel = zapcore.CapitalLevelEncoder
 		encoder = zapcore.NewJSONEncoder(config)
 	}
 

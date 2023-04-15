@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gerladeno/chat-service/internal/buildinfo"
-	"github.com/gerladeno/chat-service/internal/logger"
-	"github.com/gerladeno/chat-service/internal/validator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/gerladeno/chat-service/internal/buildinfo"
+	"github.com/gerladeno/chat-service/internal/logger"
+	"github.com/gerladeno/chat-service/internal/validator"
 )
 
 const (

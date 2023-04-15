@@ -9,10 +9,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/gerladeno/chat-service/internal/config"
 	"github.com/gerladeno/chat-service/internal/logger"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
-	"golang.org/x/sync/errgroup"
 )
 
 var configPath = flag.String("config", "configs/config.toml", "Path to config file")
@@ -34,7 +35,7 @@ func run() (errReturned error) {
 		return fmt.Errorf("parse and validate config %q: %v", *configPath, err)
 	}
 
-	if err = logger.Init(logger.NewOptions(cfg.Log.Level, logger.WithProductionMode(cfg.Global.Env == "prod"))); err != nil {
+	if err = logger.Init(logger.NewOptions(cfg.Log.Level, logger.WithProductionMode(cfg.Global.IsProd()))); err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer logger.Sync()

@@ -3,9 +3,10 @@ package logger_test
 import (
 	"testing"
 
-	"github.com/gerladeno/chat-service/internal/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/gerladeno/chat-service/internal/logger"
 )
 
 func TestInit(t *testing.T) {
