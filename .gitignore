@@ -1,0 +1,6 @@
+.idea
+.env
+*.out
+*.test
+/chat-service
+configs/config.toml
