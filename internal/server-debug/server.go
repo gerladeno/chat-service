@@ -100,6 +100,7 @@ func (s *Server) LogLevel(eCtx echo.Context) error {
 	if err := logger.Atom.UnmarshalText([]byte(level)); err != nil {
 		return fmt.Errorf("err parsing level %s: %w", level, err)
 	}
+	// TODO log loglevel change
 	return nil
 }
 

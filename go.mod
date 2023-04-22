@@ -3,7 +3,7 @@ module github.com/gerladeno/chat-service
 go 1.20
 
 require (
-	entgo.io/ent v0.12.0
+	entgo.io/ent v0.11.10
 	github.com/BurntSushi/toml v1.2.1
 	github.com/TheZeroSlave/zapsentry v1.15.0
 	github.com/getsentry/sentry-go v0.20.0

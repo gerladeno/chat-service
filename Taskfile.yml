@@ -89,7 +89,7 @@ tasks:
   gen:
     - echo "Run go generate..."
     - go generate ./...
-
+    - task: gen:types
 
   gen:types:
     cmds:
