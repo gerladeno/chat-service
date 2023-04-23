@@ -37,7 +37,7 @@ func Init(opts Options) error {
 	}
 	Atom, err = zap.ParseAtomicLevel(opts.level)
 	if err != nil {
-		return fmt.Errorf("err parsing log level: %w", err)
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 	config := zap.NewProductionEncoderConfig()
 	config.NameKey = "component"
@@ -60,11 +60,11 @@ func Init(opts Options) error {
 		}
 		client, err := NewSentryClient(opts.sentryDSN, opts.env, buildinfo.GetSentryVersion())
 		if err != nil {
-			return fmt.Errorf("err initing sentry client: %w", err)
+			return fmt.Errorf("initing sentry client: %w", err)
 		}
 		core, err := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
 		if err != nil {
-			return fmt.Errorf("err adding sentry to zap: %w", err)
+			return fmt.Errorf("adding sentry to zap: %w", err)
 		}
 		cores = append(cores, core)
 	}
