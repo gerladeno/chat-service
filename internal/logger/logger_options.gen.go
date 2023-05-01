@@ -32,6 +32,18 @@ func WithProductionMode(opt bool) OptOptionsSetter {
 	}
 }
 
+func WithSentryDSN(opt string) OptOptionsSetter {
+	return func(o *Options) {
+		o.sentryDSN = opt
+	}
+}
+
+func WithEnv(opt string) OptOptionsSetter {
+	return func(o *Options) {
+		o.env = opt
+	}
+}
+
 func (o *Options) Validate() error {
 	errs := new(errors461e464ebed9.ValidationErrors)
 	errs.Add(errors461e464ebed9.NewValidationError("level", _validate_Options_level(o)))

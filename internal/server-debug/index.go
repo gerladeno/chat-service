@@ -54,7 +54,6 @@ func (i *indexPage) handler(eCtx echo.Context) error {
 			const req = new XMLHttpRequest();
 			req.open('PUT', '/log/level', false);
 			req.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-			// FIXME: проставляем нужные заголовки
 			req.onload = function() { window.location.reload(); };
 			req.send('level='+document.getElementById('log-level-select').value);
 		};

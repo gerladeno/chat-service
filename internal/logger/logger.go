@@ -7,14 +7,19 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/TheZeroSlave/zapsentry"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/gerladeno/chat-service/internal/buildinfo"
 )
 
 //go:generate options-gen -out-filename=logger_options.gen.go -from-struct=Options
 type Options struct {
 	level          string `option:"mandatory" validate:"required,oneof=debug info warn error"`
 	productionMode bool
+	sentryDSN      string
+	env            string
 }
 
 func MustInit(opts Options) {
@@ -32,7 +37,7 @@ func Init(opts Options) error {
 	}
 	Atom, err = zap.ParseAtomicLevel(opts.level)
 	if err != nil {
-		return fmt.Errorf("err parsing log level: %w", err)
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 	config := zap.NewProductionEncoderConfig()
 	config.NameKey = "component"
@@ -48,6 +53,20 @@ func Init(opts Options) error {
 
 	cores := []zapcore.Core{
 		zapcore.NewCore(encoder, os.Stdout, Atom),
+	}
+	if opts.sentryDSN != "" {
+		cfg := zapsentry.Configuration{
+			Level: zapcore.WarnLevel,
+		}
+		client, err := NewSentryClient(opts.sentryDSN, opts.env, buildinfo.GetSentryVersion())
+		if err != nil {
+			return fmt.Errorf("initing sentry client: %w", err)
+		}
+		core, err := zapsentry.NewCore(cfg, zapsentry.NewSentryClientFromClient(client))
+		if err != nil {
+			return fmt.Errorf("adding sentry to zap: %w", err)
+		}
+		cores = append(cores, core)
 	}
 	l := zap.New(zapcore.NewTee(cores...))
 	zap.ReplaceGlobals(l)

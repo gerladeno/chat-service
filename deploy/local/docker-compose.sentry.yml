@@ -1,0 +1,49 @@
+version: "3.8"
+
+x-defaults: &default
+  image: sentry:9.1.2
+  depends_on:
+    - redis
+    - postgres
+  links:
+    - redis
+    - postgres
+  environment:
+    SENTRY_SECRET_KEY: 'secret'
+    SENTRY_POSTGRES_HOST: postgres
+    SENTRY_DB_USER: sentry
+    SENTRY_DB_PASSWORD: sentry
+    SENTRY_REDIS_HOST: redis
+  volumes:
+    - sentry-data:/var/lib/sentry/files
+
+services:
+  redis:
+    restart: unless-stopped
+    image: redis:3.2-alpine
+    profiles:
+      - sentry
+
+  sentry:
+    <<: *default
+    stdin_open: true
+    tty: true
+    ports:
+      - '9000:9000'
+    profiles:
+      - sentry
+
+  cron:
+    <<: *default
+    command: sentry run cron
+    profiles:
+      - sentry
+
+  worker:
+    <<: *default
+    command: sentry run worker
+    profiles:
+      - sentry
+
+volumes:
+  sentry-data:

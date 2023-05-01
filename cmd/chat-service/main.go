@@ -11,8 +11,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
 	"github.com/gerladeno/chat-service/internal/config"
 	"github.com/gerladeno/chat-service/internal/logger"
+	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
 )
 
@@ -35,14 +37,48 @@ func run() (errReturned error) {
 		return fmt.Errorf("parse and validate config %q: %v", *configPath, err)
 	}
 
-	if err = logger.Init(logger.NewOptions(cfg.Log.Level, logger.WithProductionMode(cfg.Global.IsProd()))); err != nil {
+	if err = logger.Init(logger.NewOptions(
+		cfg.Log.Level,
+		logger.WithProductionMode(cfg.Global.IsProd()),
+		logger.WithSentryDSN(cfg.Sentry.DSN),
+		logger.WithEnv(cfg.Global.Env),
+	)); err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer logger.Sync()
 
-	srvDebug, err := serverdebug.New(serverdebug.NewOptions(cfg.Servers.Debug.Addr))
+	swagger, err := clientv1.GetSwagger()
+	if err != nil {
+		return fmt.Errorf("get swagger: %w", err)
+	}
+	srvDebug, err := serverdebug.New(serverdebug.NewOptions(
+		cfg.Servers.Debug.Addr,
+		swagger,
+	))
 	if err != nil {
 		return fmt.Errorf("init debug server: %v", err)
+	}
+	kcClient, err := keycloakclient.New(keycloakclient.NewOptions(
+		cfg.Clients.Keycloak.BasePath,
+		cfg.Clients.Keycloak.Realm,
+		cfg.Clients.Keycloak.ClientID,
+		cfg.Clients.Keycloak.ClientSecret,
+		cfg.Global.IsProd(),
+		keycloakclient.WithDebugMode(cfg.Clients.Keycloak.DebugMode),
+	))
+	if err != nil {
+		return fmt.Errorf("init keycloak client: %w", err)
+	}
+	srvClient, err := initServerClient(
+		cfg.Servers.Client.Addr,
+		cfg.Servers.Client.AllowOrigins,
+		swagger,
+		kcClient,
+		cfg.Servers.Client.RequiredAccess.Resource,
+		cfg.Servers.Client.RequiredAccess.Role,
+	)
+	if err != nil {
+		return fmt.Errorf("init chat server: %w", err)
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -50,6 +86,7 @@ func run() (errReturned error) {
 	// Run servers.
 	eg.Go(func() error { return srvDebug.Run(ctx) })
 
+	eg.Go(func() error { return srvClient.Run(ctx) })
 	// Run services.
 	// Ждут своего часа.
 	// ...

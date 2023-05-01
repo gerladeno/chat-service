@@ -6,16 +6,38 @@ silent: true
 vars:
   GO_MODULE: github.com/gerladeno/chat-service
   GO_FILES:
-    sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "*.gen.go" | tr "\n" " "
-
+    sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./internal/store/*" -not -path "*.gen.go" | tr "\n" " "
+  DOCKER_COMPOSE_PATHS: |
+    ./deploy/local/docker-compose.yml
+    ./deploy/local/docker-compose.sentry.yml
+    ./deploy/local/docker-compose.swagger-ui.yml
+  DOCKER_COMPOSE_CMD:
+    docker compose{{range $i, $line := .DOCKER_COMPOSE_PATHS | trim | splitLines}} -f "{{$line}}"{{end}}
   GOLANGCI_LINT_VERSION: v1.52.2
   GOLANGCI_LINT_CACHE:
     sh: echo "$HOME/misc/caches"
+  TYPES: |
+    ChatID
+    MessageID
+    ProblemID
+    UserID
+    RequestID
+  TYPES_PKG: types
+  TYPES_DST: ./internal/types/types.gen.go
 
   DEV_TOOLS: |
     github.com/daixiang0/gci@v0.8.0
     mvdan.cc/gofumpt@v0.4.0
     github.com/kazhuravlev/options-gen/cmd/options-gen@v0.28.4
+    entgo.io/ent/cmd/ent@v0.11.10
+    github.com/deepmap/oapi-codegen/cmd/oapi-codegen@latest
+    github.com/golang/mock/mockgen@v1.6.0
+
+  ENT_SCHEMA: ./internal/store/schema
+
+  CLIENT_V1_SRC: ./api/client.v1.swagger.yml
+  CLIENT_V1_DST: ./internal/server-client/v1/server.gen.go
+  CLIENT_V1_PKG: clientv1
 
 tasks:
   default:
@@ -71,10 +93,84 @@ tasks:
     cmds:
       - echo "- Install dev tools"
       - |
-        {{range $i, $line := .DEV_TOOLS | splitLines}}
-        {{if ne $line ""}}go install "{{$line}}"{{end}}
+        {{range $i, $line := .DEV_TOOLS | trim | splitLines}}
+        go install "{{$line}}"
         {{end}}
 
   gen:
     - echo "Run go generate..."
     - go generate ./...
+    - task: gen:types
+    - task: ent:gen
+    - task: gen:api
+
+  gen:types:
+    cmds:
+      - echo "Generate types..."
+      - go run ./cmd/gen-types types {{range $i, $line := .TYPES | trim | splitLines}}{{$line}},{{end}} internal/types/types.gen.go
+
+  ent:new:
+    cmds:
+      - go run -mod=mod entgo.io/ent/cmd/ent new --target ./internal/store/schema {{$.CLI_ARGS}}
+      - task: tidy
+
+  ent:gen:
+    cmds:
+      - go run -mod=mod entgo.io/ent/cmd/ent generate --target ./internal/store ./internal/store/schema
+      - task: tidy
+
+  gen:api:
+    cmds:
+      - oapi-codegen -old-config-style -package {{ .CLIENT_V1_PKG }} {{ $.CLIENT_V1_SRC }} > {{ $.CLIENT_V1_DST }}
+
+  deps:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} up -d"
+
+  deps:cmd:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} {{$.CLI_ARGS}}"
+
+  deps:status:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} ps"
+
+  deps:logs:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} logs {{$.CLI_ARGS}}"
+
+  deps:stop:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} stop"
+
+  deps:reset-psql:
+    cmds:
+      - task: deps:reset
+        vars:
+          SERVICE: postgres
+
+  deps:reset:
+    cmds:
+      - "{{.DOCKER_COMPOSE_CMD}} rm -fsv {{.SERVICE}}"
+      - "{{.DOCKER_COMPOSE_CMD}} up -d {{.SERVICE}}"
+
+  ui:
+    cmds:
+      - cd ./cmd/ui-client && go run ./main.go
+
+  tests:integration:
+    env:
+      TEST_LOG_LEVEL: info
+      TEST_KEYCLOAK_REALM: Bank
+      TEST_KEYCLOAK_CLIENT_ID: integration-testing
+      TEST_KEYCLOAK_CLIENT_SECRET: GvAIkEVM0iNvv1JPUFpq2iHFzaCYFPRN
+      TEST_KEYCLOAK_TEST_USER: integration-testing
+      TEST_KEYCLOAK_TEST_PASSWORD: integration-testing
+    cmds:
+      - echo "- Integration tests"
+      - go test -tags integration -count 1 -race ./...
+
+  kc:export:
+    cmds:
+      - |
+        docker exec -it local-keycloak-1 bash -c "/opt/keycloak/bin/kc.sh export --dir /opt/keycloak/data/import --users realm_file"
