@@ -457,7 +457,9 @@ func (cq *ChatQuery) loadMessages(ctx context.Context, query *MessageQuery, node
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(message.FieldChatID)
+	}
 	query.Where(predicate.Message(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(chat.MessagesColumn), fks...))
 	}))
@@ -466,13 +468,10 @@ func (cq *ChatQuery) loadMessages(ctx context.Context, query *MessageQuery, node
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.chat_messages
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "chat_messages" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		fk := n.ChatID
+		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "chat_messages" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "chat_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}
@@ -488,7 +487,9 @@ func (cq *ChatQuery) loadProblems(ctx context.Context, query *ProblemQuery, node
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(problem.FieldChatID)
+	}
 	query.Where(predicate.Problem(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(chat.ProblemsColumn), fks...))
 	}))
@@ -497,13 +498,10 @@ func (cq *ChatQuery) loadProblems(ctx context.Context, query *ProblemQuery, node
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.chat_problems
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "chat_problems" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		fk := n.ChatID
+		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "chat_problems" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "chat_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

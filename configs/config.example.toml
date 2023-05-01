@@ -24,3 +24,11 @@ realm = "Bank"
 client_id = "chat-service"
 client_secret = "подставьте-свой-секрет"
 debug_mode = false
+
+[db]
+[db.postgres]
+user = "chat-service"
+password = "chat-service"
+addr = "localhost:5432"
+database = "postgres"
+debug_mode = true

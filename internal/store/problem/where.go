@@ -56,6 +56,11 @@ func IDLTE(id types.ProblemID) predicate.Problem {
 	return predicate.Problem(sql.FieldLTE(FieldID, id))
 }
 
+// ChatID applies equality check predicate on the "chat_id" field. It's identical to ChatIDEQ.
+func ChatID(v types.ChatID) predicate.Problem {
+	return predicate.Problem(sql.FieldEQ(FieldChatID, v))
+}
+
 // ManagerID applies equality check predicate on the "manager_id" field. It's identical to ManagerIDEQ.
 func ManagerID(v types.UserID) predicate.Problem {
 	return predicate.Problem(sql.FieldEQ(FieldManagerID, v))
@@ -69,6 +74,26 @@ func ResolvedAt(v time.Time) predicate.Problem {
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.Problem {
 	return predicate.Problem(sql.FieldEQ(FieldCreatedAt, v))
+}
+
+// ChatIDEQ applies the EQ predicate on the "chat_id" field.
+func ChatIDEQ(v types.ChatID) predicate.Problem {
+	return predicate.Problem(sql.FieldEQ(FieldChatID, v))
+}
+
+// ChatIDNEQ applies the NEQ predicate on the "chat_id" field.
+func ChatIDNEQ(v types.ChatID) predicate.Problem {
+	return predicate.Problem(sql.FieldNEQ(FieldChatID, v))
+}
+
+// ChatIDIn applies the In predicate on the "chat_id" field.
+func ChatIDIn(vs ...types.ChatID) predicate.Problem {
+	return predicate.Problem(sql.FieldIn(FieldChatID, vs...))
+}
+
+// ChatIDNotIn applies the NotIn predicate on the "chat_id" field.
+func ChatIDNotIn(vs ...types.ChatID) predicate.Problem {
+	return predicate.Problem(sql.FieldNotIn(FieldChatID, vs...))
 }
 
 // ManagerIDEQ applies the EQ predicate on the "manager_id" field.

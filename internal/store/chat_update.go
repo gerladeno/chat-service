@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -34,20 +33,6 @@ func (cu *ChatUpdate) Where(ps ...predicate.Chat) *ChatUpdate {
 // SetClientID sets the "client_id" field.
 func (cu *ChatUpdate) SetClientID(ti types.UserID) *ChatUpdate {
 	cu.mutation.SetClientID(ti)
-	return cu
-}
-
-// SetCreatedAt sets the "created_at" field.
-func (cu *ChatUpdate) SetCreatedAt(t time.Time) *ChatUpdate {
-	cu.mutation.SetCreatedAt(t)
-	return cu
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (cu *ChatUpdate) SetNillableCreatedAt(t *time.Time) *ChatUpdate {
-	if t != nil {
-		cu.SetCreatedAt(*t)
-	}
 	return cu
 }
 
@@ -167,9 +152,6 @@ func (cu *ChatUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := cu.mutation.ClientID(); ok {
 		_spec.SetField(chat.FieldClientID, field.TypeUUID, value)
 	}
-	if value, ok := cu.mutation.CreatedAt(); ok {
-		_spec.SetField(chat.FieldCreatedAt, field.TypeTime, value)
-	}
 	if cu.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -283,20 +265,6 @@ type ChatUpdateOne struct {
 // SetClientID sets the "client_id" field.
 func (cuo *ChatUpdateOne) SetClientID(ti types.UserID) *ChatUpdateOne {
 	cuo.mutation.SetClientID(ti)
-	return cuo
-}
-
-// SetCreatedAt sets the "created_at" field.
-func (cuo *ChatUpdateOne) SetCreatedAt(t time.Time) *ChatUpdateOne {
-	cuo.mutation.SetCreatedAt(t)
-	return cuo
-}
-
-// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (cuo *ChatUpdateOne) SetNillableCreatedAt(t *time.Time) *ChatUpdateOne {
-	if t != nil {
-		cuo.SetCreatedAt(*t)
-	}
 	return cuo
 }
 
@@ -445,9 +413,6 @@ func (cuo *ChatUpdateOne) sqlSave(ctx context.Context) (_node *Chat, err error) 
 	}
 	if value, ok := cuo.mutation.ClientID(); ok {
 		_spec.SetField(chat.FieldClientID, field.TypeUUID, value)
-	}
-	if value, ok := cuo.mutation.CreatedAt(); ok {
-		_spec.SetField(chat.FieldCreatedAt, field.TypeTime, value)
 	}
 	if cuo.mutation.MessagesCleared() {
 		edge := &sqlgraph.EdgeSpec{

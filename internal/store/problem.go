@@ -19,6 +19,8 @@ type Problem struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID types.ProblemID `json:"id,omitempty"`
+	// ChatID holds the value of the "chat_id" field.
+	ChatID types.ChatID `json:"chat_id,omitempty"`
 	// ManagerID holds the value of the "manager_id" field.
 	ManagerID types.UserID `json:"manager_id,omitempty"`
 	// ResolvedAt holds the value of the "resolved_at" field.
@@ -27,9 +29,8 @@ type Problem struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProblemQuery when eager-loading is set.
-	Edges         ProblemEdges `json:"edges"`
-	chat_problems *types.ChatID
-	selectValues  sql.SelectValues
+	Edges        ProblemEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // ProblemEdges holds the relations/edges for other nodes in the graph.
@@ -72,12 +73,12 @@ func (*Problem) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case problem.FieldResolvedAt, problem.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
+		case problem.FieldChatID:
+			values[i] = new(types.ChatID)
 		case problem.FieldID:
 			values[i] = new(types.ProblemID)
 		case problem.FieldManagerID:
 			values[i] = new(types.UserID)
-		case problem.ForeignKeys[0]: // chat_problems
-			values[i] = &sql.NullScanner{S: new(types.ChatID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -99,6 +100,12 @@ func (pr *Problem) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				pr.ID = *value
 			}
+		case problem.FieldChatID:
+			if value, ok := values[i].(*types.ChatID); !ok {
+				return fmt.Errorf("unexpected type %T for field chat_id", values[i])
+			} else if value != nil {
+				pr.ChatID = *value
+			}
 		case problem.FieldManagerID:
 			if value, ok := values[i].(*types.UserID); !ok {
 				return fmt.Errorf("unexpected type %T for field manager_id", values[i])
@@ -116,13 +123,6 @@ func (pr *Problem) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
 				pr.CreatedAt = value.Time
-			}
-		case problem.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field chat_problems", values[i])
-			} else if value.Valid {
-				pr.chat_problems = new(types.ChatID)
-				*pr.chat_problems = *value.S.(*types.ChatID)
 			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
@@ -170,6 +170,9 @@ func (pr *Problem) String() string {
 	var builder strings.Builder
 	builder.WriteString("Problem(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", pr.ID))
+	builder.WriteString("chat_id=")
+	builder.WriteString(fmt.Sprintf("%v", pr.ChatID))
+	builder.WriteString(", ")
 	builder.WriteString("manager_id=")
 	builder.WriteString(fmt.Sprintf("%v", pr.ManagerID))
 	builder.WriteString(", ")

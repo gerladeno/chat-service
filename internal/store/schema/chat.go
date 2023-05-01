@@ -5,7 +5,6 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"github.com/gerladeno/chat-service/internal/types"
-	"time"
 )
 
 // Chat holds the schema definition for the Chat entity.
@@ -18,7 +17,7 @@ func (Chat) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("id", types.ChatID{}).Default(types.NewChatID).Unique(),
 		field.UUID("client_id", types.UserID{}).Unique(),
-		field.Time("created_at").Default(time.Now),
+		newCreatedAtField(),
 	}
 }
 

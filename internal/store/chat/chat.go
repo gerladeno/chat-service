@@ -31,14 +31,14 @@ const (
 	// It exists in this package in order to avoid circular dependency with the "message" package.
 	MessagesInverseTable = "messages"
 	// MessagesColumn is the table column denoting the messages relation/edge.
-	MessagesColumn = "chat_messages"
+	MessagesColumn = "chat_id"
 	// ProblemsTable is the table that holds the problems relation/edge.
 	ProblemsTable = "problems"
 	// ProblemsInverseTable is the table name for the Problem entity.
 	// It exists in this package in order to avoid circular dependency with the "problem" package.
 	ProblemsInverseTable = "problems"
 	// ProblemsColumn is the table column denoting the problems relation/edge.
-	ProblemsColumn = "chat_problems"
+	ProblemsColumn = "chat_id"
 )
 
 // Columns holds all SQL columns for chat fields.

@@ -35,6 +35,7 @@ type Options struct {
 	client       middlewares.Introspector `option:"mandatory" validate:"required"`
 	resource     string                   `option:"mandatory" validate:"required"`
 	role         string                   `option:"mandatory" validate:"required"`
+	errHandler   echo.HTTPErrorHandler    `option:"mandatory" validate:"required"`
 }
 
 type Server struct {
@@ -48,42 +49,16 @@ func New(opts Options) (*Server, error) {
 	}
 
 	e := echo.New()
+	e.HTTPErrorHandler = opts.errHandler
 	e.Use(
 		middleware.Recover(),
 		middleware.BodyLimit(bodyLimit),
-		middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-			LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-				if c.Request().Method == http.MethodOptions {
-					return nil
-				}
-				opts.logger.Info("request",
-					zap.Duration("latency", v.Latency),
-					zap.String("remote_ip", v.RemoteIP),
-					zap.String("host", v.Host),
-					zap.String("method", v.Method),
-					zap.String("path", v.RoutePath),
-					zap.String("request_id", v.RequestID),
-					zap.String("user_agent", v.UserAgent),
-					zap.Int("status", v.Status),
-					zap.String("userId", middlewares.MustUserID(c).String()),
-				)
-				return nil
-			},
-			LogLatency:   true,
-			LogRemoteIP:  true,
-			LogHost:      true,
-			LogMethod:    true,
-			LogRoutePath: true,
-			LogRequestID: true,
-			LogUserAgent: true,
-			LogStatus:    true,
-			LogError:     true,
-		}),
 		middleware.CORSWithConfig(middleware.CORSConfig{
 			AllowOrigins: opts.allowOrigins,
 			AllowMethods: []string{http.MethodPost},
 		}),
 		middlewares.NewKeycloakTokenAuth(opts.client, opts.resource, opts.role),
+		middlewares.RequestLogger(opts.logger),
 	)
 
 	v1 := e.Group("v1", oapimdlwr.OapiRequestValidatorWithOptions(opts.v1Swagger, &oapimdlwr.Options{
