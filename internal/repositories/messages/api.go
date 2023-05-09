@@ -34,7 +34,6 @@ func (r *Repo) CreateClientVisible(
 	msgBody string,
 ) (*Message, error) {
 	msg, err := r.db.Message(ctx).Create().
-		SetID(types.NewMessageID()).
 		SetInitialRequestID(reqID).
 		SetProblemID(problemID).
 		SetChatID(chatID).

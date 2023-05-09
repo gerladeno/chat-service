@@ -381,3 +381,143 @@ func (id RequestID) Matches(x any) bool {
 func (id RequestID) IsZero() bool {
 	return id.String() == "" || id == RequestIDNil
 }
+
+type JobID uuid.UUID
+
+var JobIDNil = JobID(uuid.Nil)
+
+func NewJobID() JobID {
+	return JobID(uuid.New())
+}
+
+func (id JobID) String() string {
+	return uuid.UUID(id).String()
+}
+
+func (id JobID) MarshalText() ([]byte, error) {
+	return []byte(uuid.UUID(id).String()), nil
+}
+
+func (id *JobID) UnmarshalText(text []byte) error {
+	if id == nil {
+		return ErrEntityIsNil
+	}
+	val, err := uuid.ParseBytes(text)
+	if err != nil {
+		return err
+	}
+	*id = JobID(val)
+	return nil
+}
+
+func (id JobID) Value() (driver.Value, error) {
+	return uuid.UUID(id).Value()
+}
+
+func (id *JobID) Scan(src any) error {
+	if id == nil {
+		return ErrEntityIsNil
+	}
+	val := uuid.Nil
+	if err := val.Scan(src); err != nil {
+		return err
+	}
+	*id = JobID(val)
+	return nil
+}
+
+func (id JobID) Validate() error {
+	if id.IsZero() {
+		return ErrZeroID
+	}
+	_, err := uuid.Parse(id.String())
+	return err
+}
+
+func (id JobID) Matches(x any) bool {
+	switch x.(type) {
+	case JobID:
+		if id == x.(JobID) {
+			return true
+		}
+	case *JobID:
+		if x.(*JobID) != nil && id == *x.(*JobID) {
+			return true
+		}
+	}
+	return false
+}
+
+func (id JobID) IsZero() bool {
+	return id.String() == "" || id == JobIDNil
+}
+
+type FailedJobID uuid.UUID
+
+var FailedJobIDNil = FailedJobID(uuid.Nil)
+
+func NewFailedJobID() FailedJobID {
+	return FailedJobID(uuid.New())
+}
+
+func (id FailedJobID) String() string {
+	return uuid.UUID(id).String()
+}
+
+func (id FailedJobID) MarshalText() ([]byte, error) {
+	return []byte(uuid.UUID(id).String()), nil
+}
+
+func (id *FailedJobID) UnmarshalText(text []byte) error {
+	if id == nil {
+		return ErrEntityIsNil
+	}
+	val, err := uuid.ParseBytes(text)
+	if err != nil {
+		return err
+	}
+	*id = FailedJobID(val)
+	return nil
+}
+
+func (id FailedJobID) Value() (driver.Value, error) {
+	return uuid.UUID(id).Value()
+}
+
+func (id *FailedJobID) Scan(src any) error {
+	if id == nil {
+		return ErrEntityIsNil
+	}
+	val := uuid.Nil
+	if err := val.Scan(src); err != nil {
+		return err
+	}
+	*id = FailedJobID(val)
+	return nil
+}
+
+func (id FailedJobID) Validate() error {
+	if id.IsZero() {
+		return ErrZeroID
+	}
+	_, err := uuid.Parse(id.String())
+	return err
+}
+
+func (id FailedJobID) Matches(x any) bool {
+	switch x.(type) {
+	case FailedJobID:
+		if id == x.(FailedJobID) {
+			return true
+		}
+	case *FailedJobID:
+		if x.(*FailedJobID) != nil && id == *x.(*FailedJobID) {
+			return true
+		}
+	}
+	return false
+}
+
+func (id FailedJobID) IsZero() bool {
+	return id.String() == "" || id == FailedJobIDNil
+}

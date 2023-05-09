@@ -10,7 +10,6 @@ import (
 
 func (r *Repo) CreateIfNotExists(ctx context.Context, userID types.UserID) (types.ChatID, error) {
 	chatID, err := r.db.Chat(ctx).Create().
-		SetID(types.NewChatID()).
 		SetCreatedAt(time.Now()).
 		SetClientID(userID).OnConflictColumns("client_id").UpdateClientID().
 		ID(ctx)
