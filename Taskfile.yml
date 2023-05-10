@@ -7,15 +7,18 @@ vars:
   GO_MODULE: github.com/gerladeno/chat-service
   GO_FILES:
     sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./internal/store/*" -not -path "*.gen.go" | tr "\n" " "
+
+  GOLANGCI_LINT_VERSION: v1.52.2
+  GOLANGCI_LINT_CACHE:
+    sh: echo "$HOME/misc/caches"
+
   DOCKER_COMPOSE_PATHS: |
     ./deploy/local/docker-compose.yml
     ./deploy/local/docker-compose.sentry.yml
     ./deploy/local/docker-compose.swagger-ui.yml
   DOCKER_COMPOSE_CMD:
     docker compose{{range $i, $line := .DOCKER_COMPOSE_PATHS | trim | splitLines}} -f "{{$line}}"{{end}}
-  GOLANGCI_LINT_VERSION: v1.52.2
-  GOLANGCI_LINT_CACHE:
-    sh: echo "$HOME/misc/caches"
+
   TYPES: |
     ChatID
     MessageID
@@ -32,12 +35,16 @@ vars:
     entgo.io/ent/cmd/ent@v0.11.10
     github.com/deepmap/oapi-codegen/cmd/oapi-codegen@latest
     github.com/golang/mock/mockgen@v1.6.0
+    github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
 
   ENT_SCHEMA: ./internal/store/schema
 
   CLIENT_V1_SRC: ./api/client.v1.swagger.yml
   CLIENT_V1_DST: ./internal/server-client/v1/server.gen.go
   CLIENT_V1_PKG: clientv1
+
+  E2E_CLIENT_V1_DST: ./tests/e2e/api/client/v1/client.gen.go
+  E2E_CLIENT_V1_PKG: apiclientv1
 
 tasks:
   default:
@@ -68,7 +75,7 @@ tasks:
       - echo "- Lint"
       - mkdir -p {{.GOLANGCI_LINT_CACHE}}
       - task: lint:cmd
-        vars: {CLI_ARGS: "run --fix --timeout=5m ./..."}
+        vars: { CLI_ARGS: "run --fix --timeout=5m ./..." }
 
   lint:cmd:
     cmds:
@@ -103,6 +110,7 @@ tasks:
     - task: gen:types
     - task: ent:gen
     - task: gen:api
+    - task: gen:e2e
 
   gen:types:
     cmds:
@@ -116,12 +124,17 @@ tasks:
 
   ent:gen:
     cmds:
-      - go run -mod=mod entgo.io/ent/cmd/ent generate --target ./internal/store ./internal/store/schema
+      - go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert --target ./internal/store --template ./internal/store/templates/ ./internal/store/schema
       - task: tidy
 
   gen:api:
     cmds:
       - oapi-codegen -old-config-style -package {{ .CLIENT_V1_PKG }} {{ $.CLIENT_V1_SRC }} > {{ $.CLIENT_V1_DST }}
+
+  gen:e2e:
+    cmds:
+      - echo "[E2E] Generate client API..."
+      - oapi-codegen --old-config-style -generate types,client -package {{.E2E_CLIENT_V1_PKG}} {{.CLIENT_V1_SRC}} > {{.E2E_CLIENT_V1_DST}}
 
   deps:
     cmds:
@@ -160,10 +173,13 @@ tasks:
 
   tests:integration:
     env:
+      TEST_PSQL_USER: chat-service
+      TEST_PSQL_PASSWORD: chat-service
+      TEST_PSQL_DEBUG: true
       TEST_LOG_LEVEL: info
       TEST_KEYCLOAK_REALM: Bank
       TEST_KEYCLOAK_CLIENT_ID: integration-testing
-      TEST_KEYCLOAK_CLIENT_SECRET: GvAIkEVM0iNvv1JPUFpq2iHFzaCYFPRN
+      TEST_KEYCLOAK_CLIENT_SECRET: EI18Y59XvGCUK3rkuyPBcVM85deMPlv2
       TEST_KEYCLOAK_TEST_USER: integration-testing
       TEST_KEYCLOAK_TEST_PASSWORD: integration-testing
     cmds:
@@ -174,3 +190,17 @@ tasks:
     cmds:
       - |
         docker exec -it local-keycloak-1 bash -c "/opt/keycloak/bin/kc.sh export --dir /opt/keycloak/data/import --users realm_file"
+
+  tests:e2e:
+    env:
+      E2E_CLIENT_V1_API_ENDPOINT: http://localhost:8080/v1
+      E2E_KEYCLOAK_BASE_PATH: http://localhost:3010
+      E2E_KEYCLOAK_REALM: Bank
+      E2E_KEYCLOAK_CLIENT_ID: e2e-testing
+      E2E_KEYCLOAK_CLIENT_SECRET: kOAz2cUJ9Kur3HNPOd5R3vwLhZL9TskT
+      E2E_KEYCLOAK_CLIENT_DEBUG: false
+      E2E_KEYCLOAK_CLIENTS: e2e_client_0,e2e_client_1
+    cmds:
+      - echo "- End-to-end tests..."
+      # NOTE: It's important to run tests serial (without `-p` flag) – for correct `clientsPool` sharing.
+      - "ginkgo --fail-fast --timeout=1m --tags e2e {{.CLI_ARGS}} ./tests/e2e"

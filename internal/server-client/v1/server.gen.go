@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
-	openapi_types "github.com/deepmap/oapi-codegen/pkg/types"
 	"github.com/gerladeno/chat-service/internal/types"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
@@ -28,6 +27,23 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for ErrorCode.
+const (
+	N1000 ErrorCode = 1000
+	N1001 ErrorCode = 1001
+)
+
+// Error defines model for Error.
+type Error struct {
+	// Code contains HTTP error codes and specific business logic error codes (the last must be >= 1000).
+	Code    ErrorCode `json:"code"`
+	Details *string   `json:"details,omitempty"`
+	Message string    `json:"message"`
+}
+
+// ErrorCode contains HTTP error codes and specific business logic error codes (the last must be >= 1000).
+type ErrorCode int
+
 // GetHistoryRequest defines model for GetHistoryRequest.
 type GetHistoryRequest struct {
 	Cursor   *string `json:"cursor,omitempty"`
@@ -36,13 +52,24 @@ type GetHistoryRequest struct {
 
 // GetHistoryResponse defines model for GetHistoryResponse.
 type GetHistoryResponse struct {
-	Data MessagesPage `json:"data"`
+	Data  *MessagesPage `json:"data,omitempty"`
+	Error *Error        `json:"error,omitempty"`
 }
 
 // Message defines model for Message.
 type Message struct {
-	AuthorId  types.UserID    `json:"authorId"`
-	Body      string          `json:"body"`
+	AuthorId   *types.UserID   `json:"authorId,omitempty"`
+	Body       string          `json:"body"`
+	CreatedAt  time.Time       `json:"createdAt"`
+	Id         types.MessageID `json:"id"`
+	IsBlocked  bool            `json:"isBlocked"`
+	IsReceived bool            `json:"isReceived"`
+	IsService  bool            `json:"isService"`
+}
+
+// MessageHeader defines model for MessageHeader.
+type MessageHeader struct {
+	AuthorId  *types.UserID   `json:"authorId,omitempty"`
 	CreatedAt time.Time       `json:"createdAt"`
 	Id        types.MessageID `json:"id"`
 }
@@ -50,18 +77,38 @@ type Message struct {
 // MessagesPage defines model for MessagesPage.
 type MessagesPage struct {
 	Messages []Message `json:"messages"`
+	Next     string    `json:"next"`
+}
+
+// SendMessageRequest defines model for SendMessageRequest.
+type SendMessageRequest struct {
+	MessageBody string `json:"messageBody"`
+}
+
+// SendMessageResponse defines model for SendMessageResponse.
+type SendMessageResponse struct {
+	Data  *MessageHeader `json:"data,omitempty"`
+	Error *Error         `json:"error,omitempty"`
 }
 
 // XRequestIDHeader defines model for XRequestIDHeader.
-type XRequestIDHeader = openapi_types.UUID
+type XRequestIDHeader = types.RequestID
 
 // PostGetHistoryParams defines parameters for PostGetHistory.
 type PostGetHistoryParams struct {
 	XRequestID XRequestIDHeader `json:"X-Request-ID"`
 }
 
+// PostSendMessageParams defines parameters for PostSendMessage.
+type PostSendMessageParams struct {
+	XRequestID XRequestIDHeader `json:"X-Request-ID"`
+}
+
 // PostGetHistoryJSONRequestBody defines body for PostGetHistory for application/json ContentType.
 type PostGetHistoryJSONRequestBody = GetHistoryRequest
+
+// PostSendMessageJSONRequestBody defines body for PostSendMessage for application/json ContentType.
+type PostSendMessageJSONRequestBody = SendMessageRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -140,6 +187,11 @@ type ClientInterface interface {
 	PostGetHistoryWithBody(ctx context.Context, params *PostGetHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostGetHistory(ctx context.Context, params *PostGetHistoryParams, body PostGetHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSendMessage request with any body
+	PostSendMessageWithBody(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostSendMessage(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) PostGetHistoryWithBody(ctx context.Context, params *PostGetHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -156,6 +208,30 @@ func (c *Client) PostGetHistoryWithBody(ctx context.Context, params *PostGetHist
 
 func (c *Client) PostGetHistory(ctx context.Context, params *PostGetHistoryParams, body PostGetHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostGetHistoryRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSendMessageWithBody(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSendMessageRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSendMessage(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSendMessageRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -187,6 +263,55 @@ func NewPostGetHistoryRequestWithBody(server string, params *PostGetHistoryParam
 	}
 
 	operationPath := fmt.Sprintf("/getHistory")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	var headerParam0 string
+
+	headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, params.XRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Request-ID", headerParam0)
+
+	return req, nil
+}
+
+// NewPostSendMessageRequest calls the generic PostSendMessage builder with application/json body
+func NewPostSendMessageRequest(server string, params *PostSendMessageParams, body PostSendMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostSendMessageRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostSendMessageRequestWithBody generates requests for PostSendMessage with any type of body
+func NewPostSendMessageRequestWithBody(server string, params *PostSendMessageParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sendMessage")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -262,6 +387,11 @@ type ClientWithResponsesInterface interface {
 	PostGetHistoryWithBodyWithResponse(ctx context.Context, params *PostGetHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostGetHistoryResponse, error)
 
 	PostGetHistoryWithResponse(ctx context.Context, params *PostGetHistoryParams, body PostGetHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*PostGetHistoryResponse, error)
+
+	// PostSendMessage request with any body
+	PostSendMessageWithBodyWithResponse(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error)
+
+	PostSendMessageWithResponse(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error)
 }
 
 type PostGetHistoryResponse struct {
@@ -286,6 +416,28 @@ func (r PostGetHistoryResponse) StatusCode() int {
 	return 0
 }
 
+type PostSendMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SendMessageResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSendMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSendMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // PostGetHistoryWithBodyWithResponse request with arbitrary body returning *PostGetHistoryResponse
 func (c *ClientWithResponses) PostGetHistoryWithBodyWithResponse(ctx context.Context, params *PostGetHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostGetHistoryResponse, error) {
 	rsp, err := c.PostGetHistoryWithBody(ctx, params, contentType, body, reqEditors...)
@@ -301,6 +453,23 @@ func (c *ClientWithResponses) PostGetHistoryWithResponse(ctx context.Context, pa
 		return nil, err
 	}
 	return ParsePostGetHistoryResponse(rsp)
+}
+
+// PostSendMessageWithBodyWithResponse request with arbitrary body returning *PostSendMessageResponse
+func (c *ClientWithResponses) PostSendMessageWithBodyWithResponse(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error) {
+	rsp, err := c.PostSendMessageWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSendMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostSendMessageWithResponse(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error) {
+	rsp, err := c.PostSendMessage(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSendMessageResponse(rsp)
 }
 
 // ParsePostGetHistoryResponse parses an HTTP response from a PostGetHistoryWithResponse call
@@ -329,11 +498,40 @@ func ParsePostGetHistoryResponse(rsp *http.Response) (*PostGetHistoryResponse, e
 	return response, nil
 }
 
+// ParsePostSendMessageResponse parses an HTTP response from a PostSendMessageWithResponse call
+func ParsePostSendMessageResponse(rsp *http.Response) (*PostSendMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSendMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SendMessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
 	// (POST /getHistory)
 	PostGetHistory(ctx echo.Context, params PostGetHistoryParams) error
+
+	// (POST /sendMessage)
+	PostSendMessage(ctx echo.Context, params PostSendMessageParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -374,6 +572,39 @@ func (w *ServerInterfaceWrapper) PostGetHistory(ctx echo.Context) error {
 	return err
 }
 
+// PostSendMessage converts echo context to params.
+func (w *ServerInterfaceWrapper) PostSendMessage(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{""})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostSendMessageParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Request-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-ID")]; found {
+		var XRequestID XRequestIDHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Request-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, valueList[0], &XRequestID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Request-ID: %s", err))
+		}
+
+		params.XRequestID = XRequestID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Request-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostSendMessage(ctx, params)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -403,24 +634,30 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/getHistory", wrapper.PostGetHistory)
+	router.POST(baseURL+"/sendMessage", wrapper.PostSendMessage)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/7RU3WrbTBB9FTHfdylZSnMTdJcfmrhQCE1LA8EXG2kibav9yezIxA1697K7sq1Upi0F",
-	"X5nVjGfOnHNmXqEyyhqNmh2Ur2AFCYWMFF73n/C5R8fLqxsUNZL/JjWU0MZnCloohBLuszEzW15BCoTP",
-	"vSSsoWTqMQVXtaiE//eTISUYSuh7WUMKvLH+/45J6gaGFF6yxmTjV//jFjsMMIlmUllDHCFzCyU0ktv+",
-	"cVEZlTdInahRm7xqBWcOaS0rzKVmJC26PNSFYRi2yMKw18g30rGhzdgxFCdjkVhiSKl6ciawMMNtRYN3",
-	"8gf6oBIvUvUKypOiSEFJvX3t5vVQGqSIYdrYWaMdzjvXggN//xM+QQn/5XvZ8nGG/CM6Jxp0t6JB8IX3",
-	"MjzEAqshhTFr3kL03Bpa1n+W6ZBKXxzSESRK4dHUm4OMV4SCsT7nN4BrwZixVHjIXPIfhxs5O44FpyoF",
-	"PDshxuGno04UjDrPZFRjNOwqo3J/aRvPzzi0IBKbmYN2hVdhcbDqSfLmzleJ3R5RENJ577nYvt5vuf7w",
-	"9TOM6+ZbxOie/JbZRjqkfjJBb8mdj1wI/T25663nOrlsBSeXnUTNyfntElJYIzlp/E1an/gRjEUtrIQS",
-	"ThfF4hTSIE7Alze7RQu0mbjiNbqKpOVY5Ro58ZIlbcxcQKhJwsf9csCtcbxf2dBgfzMfDnO9T8lnN3VY",
-	"RZ7R8cXo9cpoRh3QCWs7WYXu+TfnIb5OzunvdJ3fs1/s5m9z+BCPTuDoXVEcBcB41wKCt4Rv3Zx00vHC",
-	"Z0ztFRidGuth5fny+7Tl+225K1xjZ6zyDolZkEJP3eixMs87U4muNY7Ls+KsyL1tVsPPAAAA///ZR2FZ",
-	"CAcAAA==",
+	"H4sIAAAAAAAC/8xWS2/jNhD+K8S0hxagLbnpYSGghzzaTQosGmxSdIHUB1qaWOxKpJYcuXED/fdiSNmy",
+	"/OimxW6xJ1scDufxffORz5DburEGDXnInqFRTtVI6MLXu7f4oUVPN1fXqAp0vKYNZFDGTwlG1QgZvJv0",
+	"Oyc3VyDB4YdWOywgI9eiBJ+XWCv2frSuVgQZtK0uQAKtG/b35LRZgoSnydJOdN1YRzEdKiGDpaayXUxz",
+	"WydLdJUq0NgkLxVNPLqVzjHRhtAZVSV8oIeuP6k/PixOt8VA13WbpEKdPzpnQ3GNsw060hiWc1sg/37t",
+	"8BEy+CoZepX03klwveSNnYQCSekq+I4L6yTU6L1a4hFbt9uwh+1GGePPOwlDkOwZCvS50w1py0jk1pDS",
+	"xovr+/tbgbxRsJ8XyhTCN5jrR52LReu1Qe9FZZc6H+37hkoUlfIk6taTWKD4vU3TM/xBzNI0/XYKEtC0",
+	"NWQP/C1naTqbS6i10TWvfp+mWxgZhWXgxdOEfSYr5ZghnuvaFnHpUBFelopi3+W+6dbZRYV1tHL9r5Gu",
+	"tSfr1j2GR7BqnY8YHnS+UUu803+F5tXqKaY947S3RcwOawgc2Q3sG2s8HkYuFKmPseRNxNTfMrCdBNwQ",
+	"7qPUinm8GcijquqXR8geXhSwH9tO7ie9sMX6aLO0v6hs/p6puLUurK1QmWh+iznq1Wn7XZzIY+Y9oocc",
+	"Rkfuht89a97NhyYMUjQuSbVUWndTvFhmRuLwq0cXtGtr+hQy1EnIA6WLcxrlVSjCCekaD5LjJv7HGvoG",
+	"fYYy9pAL+QyF7YATGX6ATa9p4b8mrP0LB4a70ZeonFNr/jb4RC9WUQ+9A+d4h6boDz6pI73fxfH5OB4k",
+	"bD4I8An0Yju+/1Iw+HbDvHWa1nds62celUN33jIJNl8/bUj282/30N+JYWaDdWBdSdREHmjzaENnNFVs",
+	"uVDmvbhrGyaZYFEXl5VGQ+L89gYkrND5eFOtZlyIbdCoRkMGZ9N0egYysDLklyy3ahu6ZiM+4/vuNZJg",
+	"rooy7uTribur2M7DD7fW06DbIcDwpjkhm8OW5ODN080j6Ohpwwq+dNGE7FTTVDoP0ZM/PKf4vPPc+Se0",
+	"Di+1vTnjt1NYiEwKPfouTT9LAj1ZQwbjhm8GW1Ta07RnV+IHpp/GipEQShj8UwyPmkOwdqbmy0XriHb8",
+	"z3AdE5fTeAnPAbuxGISO7srAw5z7xbK/6ff4sCtcYWWbmuc57gIJrat6RciSpLK5qkrrKXuVvkoTHvJ5",
+	"93cAAAD//8A3EhFWDAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

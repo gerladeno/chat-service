@@ -9,13 +9,18 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"golang.org/x/sync/errgroup"
 
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
 	"github.com/gerladeno/chat-service/internal/config"
 	"github.com/gerladeno/chat-service/internal/logger"
+	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
+	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
+	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
+	"github.com/gerladeno/chat-service/internal/store"
 )
 
 var configPath = flag.String("config", "configs/config.toml", "Path to config file")
@@ -43,13 +48,13 @@ func run() (errReturned error) {
 		logger.WithSentryDSN(cfg.Sentry.DSN),
 		logger.WithEnv(cfg.Global.Env),
 	)); err != nil {
-		return fmt.Errorf("init logger: %w", err)
+		return fmt.Errorf("init logger: %v", err)
 	}
 	defer logger.Sync()
 
 	swagger, err := clientv1.GetSwagger()
 	if err != nil {
-		return fmt.Errorf("get swagger: %w", err)
+		return fmt.Errorf("get swagger: %v", err)
 	}
 	srvDebug, err := serverdebug.New(serverdebug.NewOptions(
 		cfg.Servers.Debug.Addr,
@@ -58,6 +63,7 @@ func run() (errReturned error) {
 	if err != nil {
 		return fmt.Errorf("init debug server: %v", err)
 	}
+
 	kcClient, err := keycloakclient.New(keycloakclient.NewOptions(
 		cfg.Clients.Keycloak.BasePath,
 		cfg.Clients.Keycloak.Realm,
@@ -67,8 +73,37 @@ func run() (errReturned error) {
 		keycloakclient.WithDebugMode(cfg.Clients.Keycloak.DebugMode),
 	))
 	if err != nil {
-		return fmt.Errorf("init keycloak client: %w", err)
+		return fmt.Errorf("init keycloak client: %v", err)
 	}
+
+	psqlClient, err := store.NewPSQLClient(store.NewPSQLOptions(
+		cfg.DB.Postgres.Addr,
+		cfg.DB.Postgres.User,
+		cfg.DB.Postgres.Password,
+		cfg.DB.Postgres.Database,
+		store.WithDebug(cfg.DB.Postgres.DebugMode),
+	))
+	if err != nil {
+		return fmt.Errorf("init psql client: %v", err)
+	}
+	if err = psqlClient.Schema.Create(ctx); err != nil {
+		return fmt.Errorf("migrate schema: %v", err)
+	}
+
+	db := store.NewDatabase(psqlClient)
+	msgRepo, err := messagesrepo.New(messagesrepo.NewOptions(db))
+	if err != nil {
+		return fmt.Errorf("init messages repo: %v", err)
+	}
+	chatRepo, err := chatsrepo.New(chatsrepo.NewOptions(db))
+	if err != nil {
+		return fmt.Errorf("init chats repo: %v", err)
+	}
+	problemsRepo, err := problemsrepo.New(problemsrepo.NewOptions(db))
+	if err != nil {
+		return fmt.Errorf("init problems repo: %v", err)
+	}
+
 	srvClient, err := initServerClient(
 		cfg.Servers.Client.Addr,
 		cfg.Servers.Client.AllowOrigins,
@@ -76,13 +111,22 @@ func run() (errReturned error) {
 		kcClient,
 		cfg.Servers.Client.RequiredAccess.Resource,
 		cfg.Servers.Client.RequiredAccess.Role,
+		cfg.Global.IsProd(),
+		msgRepo,
+		chatRepo,
+		problemsRepo,
+		db,
 	)
 	if err != nil {
-		return fmt.Errorf("init chat server: %w", err)
+		return fmt.Errorf("init chat server: %v", err)
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
+	eg.Go(func() error {
+		<-ctx.Done()
+		return psqlClient.Close()
+	})
 	// Run servers.
 	eg.Go(func() error { return srvDebug.Run(ctx) })
 

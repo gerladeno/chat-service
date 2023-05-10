@@ -27,7 +27,6 @@ type ProblemQuery struct {
 	predicates   []predicate.Problem
 	withMessages *MessageQuery
 	withChat     *ChatQuery
-	withFKs      bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -336,12 +335,12 @@ func (pq *ProblemQuery) WithChat(opts ...func(*ChatQuery)) *ProblemQuery {
 // Example:
 //
 //	var v []struct {
-//		ManagerID types.UserID `json:"manager_id,omitempty"`
+//		ChatID types.ChatID `json:"chat_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
 //	client.Problem.Query().
-//		GroupBy(problem.FieldManagerID).
+//		GroupBy(problem.FieldChatID).
 //		Aggregate(store.Count()).
 //		Scan(ctx, &v)
 func (pq *ProblemQuery) GroupBy(field string, fields ...string) *ProblemGroupBy {
@@ -359,11 +358,11 @@ func (pq *ProblemQuery) GroupBy(field string, fields ...string) *ProblemGroupBy 
 // Example:
 //
 //	var v []struct {
-//		ManagerID types.UserID `json:"manager_id,omitempty"`
+//		ChatID types.ChatID `json:"chat_id,omitempty"`
 //	}
 //
 //	client.Problem.Query().
-//		Select(problem.FieldManagerID).
+//		Select(problem.FieldChatID).
 //		Scan(ctx, &v)
 func (pq *ProblemQuery) Select(fields ...string) *ProblemSelect {
 	pq.ctx.Fields = append(pq.ctx.Fields, fields...)
@@ -407,19 +406,12 @@ func (pq *ProblemQuery) prepareQuery(ctx context.Context) error {
 func (pq *ProblemQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Problem, error) {
 	var (
 		nodes       = []*Problem{}
-		withFKs     = pq.withFKs
 		_spec       = pq.querySpec()
 		loadedTypes = [2]bool{
 			pq.withMessages != nil,
 			pq.withChat != nil,
 		}
 	)
-	if pq.withChat != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, problem.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Problem).scanValues(nil, columns)
 	}
@@ -464,7 +456,9 @@ func (pq *ProblemQuery) loadMessages(ctx context.Context, query *MessageQuery, n
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(message.FieldProblemID)
+	}
 	query.Where(predicate.Message(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(problem.MessagesColumn), fks...))
 	}))
@@ -473,13 +467,10 @@ func (pq *ProblemQuery) loadMessages(ctx context.Context, query *MessageQuery, n
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.problem_messages
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "problem_messages" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		fk := n.ProblemID
+		node, ok := nodeids[fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "problem_messages" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "problem_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}
@@ -489,10 +480,7 @@ func (pq *ProblemQuery) loadChat(ctx context.Context, query *ChatQuery, nodes []
 	ids := make([]types.ChatID, 0, len(nodes))
 	nodeids := make(map[types.ChatID][]*Problem)
 	for i := range nodes {
-		if nodes[i].chat_problems == nil {
-			continue
-		}
-		fk := *nodes[i].chat_problems
+		fk := nodes[i].ChatID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -509,7 +497,7 @@ func (pq *ProblemQuery) loadChat(ctx context.Context, query *ChatQuery, nodes []
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "chat_problems" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "chat_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -542,6 +530,9 @@ func (pq *ProblemQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != problem.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if pq.withChat != nil {
+			_spec.Node.AddColumnOnce(problem.FieldChatID)
 		}
 	}
 	if ps := pq.predicates; len(ps) > 0 {

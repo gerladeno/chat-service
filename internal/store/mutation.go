@@ -601,6 +601,7 @@ type MessageMutation struct {
 	typ                    string
 	id                     *types.MessageID
 	author_id              *types.UserID
+	initial_request_id     *types.RequestID
 	is_visible_for_client  *bool
 	is_visible_for_manager *bool
 	body                   *string
@@ -753,9 +754,130 @@ func (m *MessageMutation) OldAuthorID(ctx context.Context) (v types.UserID, err 
 	return oldValue.AuthorID, nil
 }
 
+// ClearAuthorID clears the value of the "author_id" field.
+func (m *MessageMutation) ClearAuthorID() {
+	m.author_id = nil
+	m.clearedFields[message.FieldAuthorID] = struct{}{}
+}
+
+// AuthorIDCleared returns if the "author_id" field was cleared in this mutation.
+func (m *MessageMutation) AuthorIDCleared() bool {
+	_, ok := m.clearedFields[message.FieldAuthorID]
+	return ok
+}
+
 // ResetAuthorID resets all changes to the "author_id" field.
 func (m *MessageMutation) ResetAuthorID() {
 	m.author_id = nil
+	delete(m.clearedFields, message.FieldAuthorID)
+}
+
+// SetChatID sets the "chat_id" field.
+func (m *MessageMutation) SetChatID(ti types.ChatID) {
+	m.chat = &ti
+}
+
+// ChatID returns the value of the "chat_id" field in the mutation.
+func (m *MessageMutation) ChatID() (r types.ChatID, exists bool) {
+	v := m.chat
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChatID returns the old "chat_id" field's value of the Message entity.
+// If the Message object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MessageMutation) OldChatID(ctx context.Context) (v types.ChatID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChatID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChatID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChatID: %w", err)
+	}
+	return oldValue.ChatID, nil
+}
+
+// ResetChatID resets all changes to the "chat_id" field.
+func (m *MessageMutation) ResetChatID() {
+	m.chat = nil
+}
+
+// SetInitialRequestID sets the "initial_request_id" field.
+func (m *MessageMutation) SetInitialRequestID(ti types.RequestID) {
+	m.initial_request_id = &ti
+}
+
+// InitialRequestID returns the value of the "initial_request_id" field in the mutation.
+func (m *MessageMutation) InitialRequestID() (r types.RequestID, exists bool) {
+	v := m.initial_request_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInitialRequestID returns the old "initial_request_id" field's value of the Message entity.
+// If the Message object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MessageMutation) OldInitialRequestID(ctx context.Context) (v types.RequestID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInitialRequestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInitialRequestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInitialRequestID: %w", err)
+	}
+	return oldValue.InitialRequestID, nil
+}
+
+// ResetInitialRequestID resets all changes to the "initial_request_id" field.
+func (m *MessageMutation) ResetInitialRequestID() {
+	m.initial_request_id = nil
+}
+
+// SetProblemID sets the "problem_id" field.
+func (m *MessageMutation) SetProblemID(ti types.ProblemID) {
+	m.problem = &ti
+}
+
+// ProblemID returns the value of the "problem_id" field in the mutation.
+func (m *MessageMutation) ProblemID() (r types.ProblemID, exists bool) {
+	v := m.problem
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProblemID returns the old "problem_id" field's value of the Message entity.
+// If the Message object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MessageMutation) OldProblemID(ctx context.Context) (v types.ProblemID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProblemID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProblemID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProblemID: %w", err)
+	}
+	return oldValue.ProblemID, nil
+}
+
+// ResetProblemID resets all changes to the "problem_id" field.
+func (m *MessageMutation) ResetProblemID() {
+	m.problem = nil
 }
 
 // SetIsVisibleForClient sets the "is_visible_for_client" field.
@@ -1023,11 +1145,6 @@ func (m *MessageMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
-// SetProblemID sets the "problem" edge to the Problem entity by id.
-func (m *MessageMutation) SetProblemID(id types.ProblemID) {
-	m.problem = &id
-}
-
 // ClearProblem clears the "problem" edge to the Problem entity.
 func (m *MessageMutation) ClearProblem() {
 	m.clearedproblem = true
@@ -1036,14 +1153,6 @@ func (m *MessageMutation) ClearProblem() {
 // ProblemCleared reports if the "problem" edge to the Problem entity was cleared.
 func (m *MessageMutation) ProblemCleared() bool {
 	return m.clearedproblem
-}
-
-// ProblemID returns the "problem" edge ID in the mutation.
-func (m *MessageMutation) ProblemID() (id types.ProblemID, exists bool) {
-	if m.problem != nil {
-		return *m.problem, true
-	}
-	return
 }
 
 // ProblemIDs returns the "problem" edge IDs in the mutation.
@@ -1062,11 +1171,6 @@ func (m *MessageMutation) ResetProblem() {
 	m.clearedproblem = false
 }
 
-// SetChatID sets the "chat" edge to the Chat entity by id.
-func (m *MessageMutation) SetChatID(id types.ChatID) {
-	m.chat = &id
-}
-
 // ClearChat clears the "chat" edge to the Chat entity.
 func (m *MessageMutation) ClearChat() {
 	m.clearedchat = true
@@ -1075,14 +1179,6 @@ func (m *MessageMutation) ClearChat() {
 // ChatCleared reports if the "chat" edge to the Chat entity was cleared.
 func (m *MessageMutation) ChatCleared() bool {
 	return m.clearedchat
-}
-
-// ChatID returns the "chat" edge ID in the mutation.
-func (m *MessageMutation) ChatID() (id types.ChatID, exists bool) {
-	if m.chat != nil {
-		return *m.chat, true
-	}
-	return
 }
 
 // ChatIDs returns the "chat" edge IDs in the mutation.
@@ -1135,9 +1231,18 @@ func (m *MessageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MessageMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 11)
 	if m.author_id != nil {
 		fields = append(fields, message.FieldAuthorID)
+	}
+	if m.chat != nil {
+		fields = append(fields, message.FieldChatID)
+	}
+	if m.initial_request_id != nil {
+		fields = append(fields, message.FieldInitialRequestID)
+	}
+	if m.problem != nil {
+		fields = append(fields, message.FieldProblemID)
 	}
 	if m.is_visible_for_client != nil {
 		fields = append(fields, message.FieldIsVisibleForClient)
@@ -1170,6 +1275,12 @@ func (m *MessageMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case message.FieldAuthorID:
 		return m.AuthorID()
+	case message.FieldChatID:
+		return m.ChatID()
+	case message.FieldInitialRequestID:
+		return m.InitialRequestID()
+	case message.FieldProblemID:
+		return m.ProblemID()
 	case message.FieldIsVisibleForClient:
 		return m.IsVisibleForClient()
 	case message.FieldIsVisibleForManager:
@@ -1195,6 +1306,12 @@ func (m *MessageMutation) OldField(ctx context.Context, name string) (ent.Value,
 	switch name {
 	case message.FieldAuthorID:
 		return m.OldAuthorID(ctx)
+	case message.FieldChatID:
+		return m.OldChatID(ctx)
+	case message.FieldInitialRequestID:
+		return m.OldInitialRequestID(ctx)
+	case message.FieldProblemID:
+		return m.OldProblemID(ctx)
 	case message.FieldIsVisibleForClient:
 		return m.OldIsVisibleForClient(ctx)
 	case message.FieldIsVisibleForManager:
@@ -1224,6 +1341,27 @@ func (m *MessageMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAuthorID(v)
+		return nil
+	case message.FieldChatID:
+		v, ok := value.(types.ChatID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChatID(v)
+		return nil
+	case message.FieldInitialRequestID:
+		v, ok := value.(types.RequestID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInitialRequestID(v)
+		return nil
+	case message.FieldProblemID:
+		v, ok := value.(types.ProblemID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProblemID(v)
 		return nil
 	case message.FieldIsVisibleForClient:
 		v, ok := value.(bool)
@@ -1304,6 +1442,9 @@ func (m *MessageMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *MessageMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(message.FieldAuthorID) {
+		fields = append(fields, message.FieldAuthorID)
+	}
 	if m.FieldCleared(message.FieldCheckedAt) {
 		fields = append(fields, message.FieldCheckedAt)
 	}
@@ -1321,6 +1462,9 @@ func (m *MessageMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *MessageMutation) ClearField(name string) error {
 	switch name {
+	case message.FieldAuthorID:
+		m.ClearAuthorID()
+		return nil
 	case message.FieldCheckedAt:
 		m.ClearCheckedAt()
 		return nil
@@ -1334,6 +1478,15 @@ func (m *MessageMutation) ResetField(name string) error {
 	switch name {
 	case message.FieldAuthorID:
 		m.ResetAuthorID()
+		return nil
+	case message.FieldChatID:
+		m.ResetChatID()
+		return nil
+	case message.FieldInitialRequestID:
+		m.ResetInitialRequestID()
+		return nil
+	case message.FieldProblemID:
+		m.ResetProblemID()
 		return nil
 	case message.FieldIsVisibleForClient:
 		m.ResetIsVisibleForClient()
@@ -1576,6 +1729,42 @@ func (m *ProblemMutation) IDs(ctx context.Context) ([]types.ProblemID, error) {
 	}
 }
 
+// SetChatID sets the "chat_id" field.
+func (m *ProblemMutation) SetChatID(ti types.ChatID) {
+	m.chat = &ti
+}
+
+// ChatID returns the value of the "chat_id" field in the mutation.
+func (m *ProblemMutation) ChatID() (r types.ChatID, exists bool) {
+	v := m.chat
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChatID returns the old "chat_id" field's value of the Problem entity.
+// If the Problem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProblemMutation) OldChatID(ctx context.Context) (v types.ChatID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChatID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChatID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChatID: %w", err)
+	}
+	return oldValue.ChatID, nil
+}
+
+// ResetChatID resets all changes to the "chat_id" field.
+func (m *ProblemMutation) ResetChatID() {
+	m.chat = nil
+}
+
 // SetManagerID sets the "manager_id" field.
 func (m *ProblemMutation) SetManagerID(ti types.UserID) {
 	m.manager_id = &ti
@@ -1764,11 +1953,6 @@ func (m *ProblemMutation) ResetMessages() {
 	m.removedmessages = nil
 }
 
-// SetChatID sets the "chat" edge to the Chat entity by id.
-func (m *ProblemMutation) SetChatID(id types.ChatID) {
-	m.chat = &id
-}
-
 // ClearChat clears the "chat" edge to the Chat entity.
 func (m *ProblemMutation) ClearChat() {
 	m.clearedchat = true
@@ -1777,14 +1961,6 @@ func (m *ProblemMutation) ClearChat() {
 // ChatCleared reports if the "chat" edge to the Chat entity was cleared.
 func (m *ProblemMutation) ChatCleared() bool {
 	return m.clearedchat
-}
-
-// ChatID returns the "chat" edge ID in the mutation.
-func (m *ProblemMutation) ChatID() (id types.ChatID, exists bool) {
-	if m.chat != nil {
-		return *m.chat, true
-	}
-	return
 }
 
 // ChatIDs returns the "chat" edge IDs in the mutation.
@@ -1837,7 +2013,10 @@ func (m *ProblemMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProblemMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 4)
+	if m.chat != nil {
+		fields = append(fields, problem.FieldChatID)
+	}
 	if m.manager_id != nil {
 		fields = append(fields, problem.FieldManagerID)
 	}
@@ -1855,6 +2034,8 @@ func (m *ProblemMutation) Fields() []string {
 // schema.
 func (m *ProblemMutation) Field(name string) (ent.Value, bool) {
 	switch name {
+	case problem.FieldChatID:
+		return m.ChatID()
 	case problem.FieldManagerID:
 		return m.ManagerID()
 	case problem.FieldResolvedAt:
@@ -1870,6 +2051,8 @@ func (m *ProblemMutation) Field(name string) (ent.Value, bool) {
 // database failed.
 func (m *ProblemMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
 	switch name {
+	case problem.FieldChatID:
+		return m.OldChatID(ctx)
 	case problem.FieldManagerID:
 		return m.OldManagerID(ctx)
 	case problem.FieldResolvedAt:
@@ -1885,6 +2068,13 @@ func (m *ProblemMutation) OldField(ctx context.Context, name string) (ent.Value,
 // type.
 func (m *ProblemMutation) SetField(name string, value ent.Value) error {
 	switch name {
+	case problem.FieldChatID:
+		v, ok := value.(types.ChatID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChatID(v)
+		return nil
 	case problem.FieldManagerID:
 		v, ok := value.(types.UserID)
 		if !ok {
@@ -1970,6 +2160,9 @@ func (m *ProblemMutation) ClearField(name string) error {
 // It returns an error if the field is not defined in the schema.
 func (m *ProblemMutation) ResetField(name string) error {
 	switch name {
+	case problem.FieldChatID:
+		m.ResetChatID()
+		return nil
 	case problem.FieldManagerID:
 		m.ResetManagerID()
 		return nil

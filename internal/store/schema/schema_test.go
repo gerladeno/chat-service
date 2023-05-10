@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 
 	storechat "github.com/gerladeno/chat-service/internal/store/chat"
 	"github.com/gerladeno/chat-service/internal/store/enttest"
@@ -40,7 +41,8 @@ func TestChatServiceSchema(t *testing.T) {
 			client.Problem.
 				Create().
 				SetChatID(chat.ID).
-				SetManagerID(managerID),
+				SetManagerID(managerID).
+				SetResolvedAt(time.Now()),
 
 			client.Problem.
 				Create().
@@ -52,6 +54,7 @@ func TestChatServiceSchema(t *testing.T) {
 		// Dialog 1.
 		client.Message.
 			Create().
+			SetInitialRequestID(types.NewRequestID()).
 			SetChatID(chat.ID).
 			SetProblemID(problems[0].ID).
 			SetAuthorID(clientID).
@@ -63,6 +66,7 @@ func TestChatServiceSchema(t *testing.T) {
 
 		client.Message.
 			Create().
+			SetInitialRequestID(types.NewRequestID()).
 			SetChatID(chat.ID).
 			SetProblemID(problems[0].ID).
 			SetAuthorID(managerID).
@@ -75,6 +79,7 @@ func TestChatServiceSchema(t *testing.T) {
 		// Dialog 2.
 		client.Message.
 			Create().
+			SetInitialRequestID(types.NewRequestID()).
 			SetChatID(chat.ID).
 			SetProblemID(problems[1].ID).
 			SetAuthorID(clientID).
@@ -86,6 +91,7 @@ func TestChatServiceSchema(t *testing.T) {
 
 		client.Message.
 			Create().
+			SetInitialRequestID(types.NewRequestID()).
 			SetChatID(chat.ID).
 			SetProblemID(problems[1].ID).
 			SetAuthorID(managerID).

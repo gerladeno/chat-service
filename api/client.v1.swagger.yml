@@ -26,6 +26,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetHistoryResponse"
+  /sendMessage:
+    post:
+      description: Post a new message
+      parameters:
+        - $ref: "#/components/parameters/XRequestIDHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageResponse"
 
 security:
   - bearerAuth: [ ]
@@ -41,15 +59,38 @@ components:
     XRequestIDHeader:
       in: header
       name: X-Request-ID
-      required: true
       schema:
         type: string
         format: uuid
-      x-go-type: types.RequestID
-      x-go-type-import:
-        path: "github.com/gerladeno/chat-service/internal/types"
+        x-go-type: types.RequestID
+        x-go-import:
+          path: "github.com/gerladeno/chat-service/internal/types"
+      required: true
 
   schemas:
+    # Common.
+
+    Error:
+      required: [ message, code ]
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+        details:
+          type: string
+
+    ErrorCode:
+      type: integer
+      description: contains HTTP error codes and specific business logic error codes (the last must be >= 1000).
+      enum:
+        - 1000
+        - 1001
+      x-enum-varnames:
+        - ErrorCodeCreateChatError
+        - ErrorCodeCreateProblemError
+      minimum: 400
+
     # /getHistory
 
     GetHistoryRequest:
@@ -62,36 +103,64 @@ components:
           type: string
 
     GetHistoryResponse:
-      required: [ data ]
       properties:
         data:
           $ref: "#/components/schemas/MessagesPage"
+        error:
+          $ref: "#/components/schemas/Error"
 
     MessagesPage:
-      required: [ messages ]
+      required: [ messages, next ]
       properties:
         messages:
           type: array
           items:
             $ref: "#/components/schemas/Message"
+        next:
+          type: string
 
     Message:
-      required: [ id, authorId, body, createdAt ]
+      allOf:
+        - $ref: "#/components/schemas/MessageHeader"
+        - required: [ body, isReceived, isBlocked, isService ]
+          properties:
+            body:
+              type: string
+            isReceived:
+              type: boolean
+            isBlocked:
+              type: boolean
+            isService:
+              type: boolean
+
+    MessageHeader:
+      required: [ id, createdAt ]
       properties:
-        authorId:
-          type: string
-          format: uuid
-          x-go-type: types.UserID
-          x-go-type-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
-        body:
-          type: string
-        createdAt:
-          type: string
-          format: 'date-time'
         id:
           type: string
           format: uuid
           x-go-type: types.MessageID
           x-go-type-import:
             path: "github.com/gerladeno/chat-service/internal/types"
+        authorId:
+          type: string
+          format: uuid
+          x-go-type: types.UserID
+          x-go-type-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+        createdAt:
+          type: string
+          format: 'date-time'
+
+    SendMessageRequest:
+      required: [ messageBody ]
+      properties:
+        messageBody:
+          type: string
+
+    SendMessageResponse:
+      properties:
+        data:
+          $ref: "#/components/schemas/MessageHeader"
+        error:
+          $ref: "#/components/schemas/Error"

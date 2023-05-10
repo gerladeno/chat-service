@@ -26,7 +26,6 @@ type MessageQuery struct {
 	predicates  []predicate.Message
 	withProblem *ProblemQuery
 	withChat    *ChatQuery
-	withFKs     bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -406,19 +405,12 @@ func (mq *MessageQuery) prepareQuery(ctx context.Context) error {
 func (mq *MessageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Message, error) {
 	var (
 		nodes       = []*Message{}
-		withFKs     = mq.withFKs
 		_spec       = mq.querySpec()
 		loadedTypes = [2]bool{
 			mq.withProblem != nil,
 			mq.withChat != nil,
 		}
 	)
-	if mq.withProblem != nil || mq.withChat != nil {
-		withFKs = true
-	}
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, message.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Message).scanValues(nil, columns)
 	}
@@ -456,10 +448,7 @@ func (mq *MessageQuery) loadProblem(ctx context.Context, query *ProblemQuery, no
 	ids := make([]types.ProblemID, 0, len(nodes))
 	nodeids := make(map[types.ProblemID][]*Message)
 	for i := range nodes {
-		if nodes[i].problem_messages == nil {
-			continue
-		}
-		fk := *nodes[i].problem_messages
+		fk := nodes[i].ProblemID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -476,7 +465,7 @@ func (mq *MessageQuery) loadProblem(ctx context.Context, query *ProblemQuery, no
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "problem_messages" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "problem_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -488,10 +477,7 @@ func (mq *MessageQuery) loadChat(ctx context.Context, query *ChatQuery, nodes []
 	ids := make([]types.ChatID, 0, len(nodes))
 	nodeids := make(map[types.ChatID][]*Message)
 	for i := range nodes {
-		if nodes[i].chat_messages == nil {
-			continue
-		}
-		fk := *nodes[i].chat_messages
+		fk := nodes[i].ChatID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -508,7 +494,7 @@ func (mq *MessageQuery) loadChat(ctx context.Context, query *ChatQuery, nodes []
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "chat_messages" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "chat_id" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)
@@ -541,6 +527,12 @@ func (mq *MessageQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != message.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if mq.withProblem != nil {
+			_spec.Node.AddColumnOnce(message.FieldProblemID)
+		}
+		if mq.withChat != nil {
+			_spec.Node.AddColumnOnce(message.FieldChatID)
 		}
 	}
 	if ps := mq.predicates; len(ps) > 0 {

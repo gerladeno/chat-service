@@ -22,6 +22,12 @@ type Message struct {
 	ID types.MessageID `json:"id,omitempty"`
 	// AuthorID holds the value of the "author_id" field.
 	AuthorID types.UserID `json:"author_id,omitempty"`
+	// ChatID holds the value of the "chat_id" field.
+	ChatID types.ChatID `json:"chat_id,omitempty"`
+	// InitialRequestID holds the value of the "initial_request_id" field.
+	InitialRequestID types.RequestID `json:"initial_request_id,omitempty"`
+	// ProblemID holds the value of the "problem_id" field.
+	ProblemID types.ProblemID `json:"problem_id,omitempty"`
 	// IsVisibleForClient holds the value of the "is_visible_for_client" field.
 	IsVisibleForClient bool `json:"is_visible_for_client,omitempty"`
 	// IsVisibleForManager holds the value of the "is_visible_for_manager" field.
@@ -38,10 +44,8 @@ type Message struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the MessageQuery when eager-loading is set.
-	Edges            MessageEdges `json:"edges"`
-	chat_messages    *types.ChatID
-	problem_messages *types.ProblemID
-	selectValues     sql.SelectValues
+	Edges        MessageEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // MessageEdges holds the relations/edges for other nodes in the graph.
@@ -92,14 +96,16 @@ func (*Message) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case message.FieldCheckedAt, message.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
+		case message.FieldChatID:
+			values[i] = new(types.ChatID)
 		case message.FieldID:
 			values[i] = new(types.MessageID)
+		case message.FieldProblemID:
+			values[i] = new(types.ProblemID)
+		case message.FieldInitialRequestID:
+			values[i] = new(types.RequestID)
 		case message.FieldAuthorID:
 			values[i] = new(types.UserID)
-		case message.ForeignKeys[0]: // chat_messages
-			values[i] = &sql.NullScanner{S: new(types.ChatID)}
-		case message.ForeignKeys[1]: // problem_messages
-			values[i] = &sql.NullScanner{S: new(types.ProblemID)}
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -126,6 +132,24 @@ func (m *Message) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field author_id", values[i])
 			} else if value != nil {
 				m.AuthorID = *value
+			}
+		case message.FieldChatID:
+			if value, ok := values[i].(*types.ChatID); !ok {
+				return fmt.Errorf("unexpected type %T for field chat_id", values[i])
+			} else if value != nil {
+				m.ChatID = *value
+			}
+		case message.FieldInitialRequestID:
+			if value, ok := values[i].(*types.RequestID); !ok {
+				return fmt.Errorf("unexpected type %T for field initial_request_id", values[i])
+			} else if value != nil {
+				m.InitialRequestID = *value
+			}
+		case message.FieldProblemID:
+			if value, ok := values[i].(*types.ProblemID); !ok {
+				return fmt.Errorf("unexpected type %T for field problem_id", values[i])
+			} else if value != nil {
+				m.ProblemID = *value
 			}
 		case message.FieldIsVisibleForClient:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -168,20 +192,6 @@ func (m *Message) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
 				m.CreatedAt = value.Time
-			}
-		case message.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field chat_messages", values[i])
-			} else if value.Valid {
-				m.chat_messages = new(types.ChatID)
-				*m.chat_messages = *value.S.(*types.ChatID)
-			}
-		case message.ForeignKeys[1]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field problem_messages", values[i])
-			} else if value.Valid {
-				m.problem_messages = new(types.ProblemID)
-				*m.problem_messages = *value.S.(*types.ProblemID)
 			}
 		default:
 			m.selectValues.Set(columns[i], values[i])
@@ -231,6 +241,15 @@ func (m *Message) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", m.ID))
 	builder.WriteString("author_id=")
 	builder.WriteString(fmt.Sprintf("%v", m.AuthorID))
+	builder.WriteString(", ")
+	builder.WriteString("chat_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.ChatID))
+	builder.WriteString(", ")
+	builder.WriteString("initial_request_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.InitialRequestID))
+	builder.WriteString(", ")
+	builder.WriteString("problem_id=")
+	builder.WriteString(fmt.Sprintf("%v", m.ProblemID))
 	builder.WriteString(", ")
 	builder.WriteString("is_visible_for_client=")
 	builder.WriteString(fmt.Sprintf("%v", m.IsVisibleForClient))
