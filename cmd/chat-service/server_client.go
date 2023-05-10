@@ -13,6 +13,7 @@ import (
 	serverclient "github.com/gerladeno/chat-service/internal/server-client"
 	"github.com/gerladeno/chat-service/internal/server-client/errhandler"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
+	"github.com/gerladeno/chat-service/internal/services/outbox"
 	"github.com/gerladeno/chat-service/internal/store"
 	gethistory "github.com/gerladeno/chat-service/internal/usecases/client/get-history"
 	sendmessage "github.com/gerladeno/chat-service/internal/usecases/client/send-message"
@@ -31,6 +32,7 @@ func initServerClient(
 	msgRepo *messagesrepo.Repo,
 	chatRepo *chatsrepo.Repo,
 	problemRepo *problemsrepo.Repo,
+	outboxService *outbox.Service,
 	db *store.Database,
 ) (*serverclient.Server, error) {
 	lg := zap.L().Named(nameServerClient)
@@ -39,12 +41,12 @@ func initServerClient(
 	if err != nil {
 		return nil, fmt.Errorf("create getHistoryUseCase: %v", err)
 	}
-	sendMessageUseCae, err := sendmessage.New(sendmessage.NewOptions(chatRepo, msgRepo, problemRepo, db))
+	sendMessageUseCase, err := sendmessage.New(sendmessage.NewOptions(chatRepo, msgRepo, outboxService, problemRepo, db))
 	if err != nil {
-		return nil, fmt.Errorf("create sendMessageUseCae: %v", err)
+		return nil, fmt.Errorf("create sendMessageUseCase: %v", err)
 	}
 
-	v1Handlers, err := clientv1.NewHandlers(clientv1.NewOptions(lg, getHistoryUseCase, sendMessageUseCae))
+	v1Handlers, err := clientv1.NewHandlers(clientv1.NewOptions(lg, getHistoryUseCase, sendMessageUseCase))
 	if err != nil {
 		return nil, fmt.Errorf("create v1 handlers: %v", err)
 	}

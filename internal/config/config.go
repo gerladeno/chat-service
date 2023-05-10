@@ -1,12 +1,15 @@
 package config
 
+import "time"
+
 type Config struct {
-	Global  GlobalConfig  `toml:"global"`
-	Log     LogConfig     `toml:"log"`
-	Servers ServersConfig `toml:"servers"`
-	Sentry  SentryConfig  `toml:"sentry"`
-	Clients ClientConfig  `toml:"clients"`
-	DB      DBConfig      `toml:"db"`
+	Global   GlobalConfig  `toml:"global"`
+	Log      LogConfig     `toml:"log"`
+	Servers  ServersConfig `toml:"servers"`
+	Sentry   SentryConfig  `toml:"sentry"`
+	Clients  ClientConfig  `toml:"clients"`
+	DB       DBConfig      `toml:"db"`
+	Services ServiceConfig `toml:"services"`
 }
 
 type GlobalConfig struct {
@@ -67,4 +70,22 @@ type PGConfig struct {
 	Addr      string `toml:"addr" validate:"required,hostname_port"`
 	Database  string `toml:"database" validate:"required"`
 	DebugMode bool   `toml:"debug_mode"`
+}
+
+type ServiceConfig struct {
+	MsgProducer MsgProducerConfig `toml:"msg_producer"`
+	Outbox      OutboxConfig      `toml:"outbox"`
+}
+
+type MsgProducerConfig struct {
+	Brokers    []string `toml:"brokers" validate:"required,dive,hostname_port"`
+	Topic      string   `toml:"topic" validate:"required"`
+	BatchSize  int      `toml:"batch_size"`
+	EncryptKey string   `toml:"encrypt_key"`
+}
+
+type OutboxConfig struct {
+	Workers    int           `toml:"workers" validate:"required"`
+	IdleTime   time.Duration `toml:"idle_time" validate:"required"`
+	ReserveFor time.Duration `toml:"reserve_for"`
 }

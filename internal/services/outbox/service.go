@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	jobsrepo "github.com/gerladeno/chat-service/internal/repositories/jobs"
-	"github.com/gerladeno/chat-service/internal/store"
 	"github.com/gerladeno/chat-service/internal/types"
 )
 
@@ -34,11 +34,11 @@ var ErrJobAlreadyExists = errors.New("job already exists")
 
 //go:generate options-gen -out-filename=service_options.gen.go -from-struct=Options
 type Options struct {
-	workers    int             `option:"mandatory" validate:"min=1,max=32"`
-	idleTime   time.Duration   `option:"mandatory" validate:"min=100ms,max=10s"`
-	reserveFor time.Duration   `option:"mandatory" validate:"min=1s,max=10m"`
-	jobsRepo   *jobsrepo.Repo  `option:"mandatory"`
-	db         *store.Database `option:"mandatory"`
+	workers    int            `option:"mandatory" validate:"min=1,max=32"`
+	idleTime   time.Duration  `option:"mandatory" validate:"min=100ms,max=10s"`
+	reserveFor time.Duration  `option:"mandatory" validate:"min=1s,max=10m"`
+	jobsRepo   *jobsrepo.Repo `option:"mandatory"`
+	db         transactor     `option:"mandatory"`
 }
 
 type Service struct {
@@ -79,13 +79,20 @@ func (s *Service) MustRegisterJob(job Job) {
 }
 
 func (s *Service) Run(ctx context.Context) error {
+	wg := sync.WaitGroup{}
 	for i := 0; i < s.workers; i++ {
-		go s.startWorker(ctx, i)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			s.runWorker(ctx, i)
+		}(i)
 	}
+	zap.L().Named(serviceName).Info("started outbox worker")
+	wg.Wait()
 	return nil
 }
 
-func (s *Service) startWorker(ctx context.Context, workerID int) {
+func (s *Service) runWorker(ctx context.Context, workerID int) {
 	log := zap.L().With(zap.String("service", serviceName), zap.Int("worker_id", workerID))
 	var err error
 	for {
@@ -97,7 +104,7 @@ func (s *Service) startWorker(ctx context.Context, workerID int) {
 		err = s.execute(ctx, log)
 		switch {
 		case errors.Is(err, jobsrepo.ErrNoJobs):
-			log.Info(fmt.Sprintf("out of jobs, idling for %d milliseconds", s.idleTime.Milliseconds()))
+			log.Debug(fmt.Sprintf("out of jobs, idling for %d milliseconds", s.idleTime.Milliseconds()))
 			time.Sleep(s.idleTime)
 		case err != nil:
 			log.With(zap.Error(err)).Warn("execution failed, proceeding")
@@ -132,16 +139,14 @@ func (s *Service) execute(ctx context.Context, log *zap.Logger) (err error) {
 	defer cancel()
 	if err = job.Handle(ctx, task.Payload); err != nil {
 		if task.Attempts >= job.MaxAttempts() {
-			go func() {
-				if err := s.moveToDLQ(context.Background(), task, reasonFailedAttemptsLimitExceeded); err != nil {
-					l.Warn("err during handling an error", zap.Error(err))
-				}
-			}()
+			if err := s.moveToDLQ(context.Background(), task, reasonFailedAttemptsLimitExceeded); err != nil {
+				l.Warn("err during handling an error", zap.Error(err))
+			}
 		}
 		return fmt.Errorf("handling a job %v: %v", task, err)
 	}
-	if err = s.jobsRepo.DeleteJob(ctx, task.ID); err != nil {
-		return fmt.Errorf("delete not found job: %v", err)
+	if err = s.jobsRepo.DeleteJob(context.Background(), task.ID); err != nil {
+		return fmt.Errorf("delete successfully handled job: %v", err)
 	}
 	return nil
 }

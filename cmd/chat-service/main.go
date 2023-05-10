@@ -16,10 +16,14 @@ import (
 	"github.com/gerladeno/chat-service/internal/config"
 	"github.com/gerladeno/chat-service/internal/logger"
 	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
+	jobsrepo "github.com/gerladeno/chat-service/internal/repositories/jobs"
 	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
 	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
+	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
+	"github.com/gerladeno/chat-service/internal/services/outbox"
+	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
 	"github.com/gerladeno/chat-service/internal/store"
 )
 
@@ -103,6 +107,42 @@ func run() (errReturned error) {
 	if err != nil {
 		return fmt.Errorf("init problems repo: %v", err)
 	}
+	jobsRepo, err := jobsrepo.New(jobsrepo.NewOptions(db))
+	if err != nil {
+		return fmt.Errorf("init jobs repo: %v", err)
+	}
+
+	msgProducer, err := msgproducer.New(msgproducer.NewOptions(
+		msgproducer.NewKafkaWriter(
+			cfg.Services.MsgProducer.Brokers,
+			cfg.Services.MsgProducer.Topic,
+			cfg.Services.MsgProducer.BatchSize,
+		), msgproducer.WithEncryptKey(cfg.Services.MsgProducer.EncryptKey),
+	))
+	if err != nil {
+		return fmt.Errorf("init msg producer: %v", err)
+	}
+
+	sendClientMessageJob, err := sendclientmessagejob.New(sendclientmessagejob.NewOptions(
+		msgProducer,
+		msgRepo,
+	))
+	if err != nil {
+		return fmt.Errorf("init send client message job: %v", err)
+	}
+
+	outboxService, err := outbox.New(outbox.NewOptions(
+		cfg.Services.Outbox.Workers,
+		cfg.Services.Outbox.IdleTime,
+		cfg.Services.Outbox.ReserveFor,
+		jobsRepo,
+		db,
+	))
+	if err != nil {
+		return fmt.Errorf("init outbox service: %v", err)
+	}
+
+	outboxService.MustRegisterJob(sendClientMessageJob)
 
 	srvClient, err := initServerClient(
 		cfg.Servers.Client.Addr,
@@ -115,6 +155,7 @@ func run() (errReturned error) {
 		msgRepo,
 		chatRepo,
 		problemsRepo,
+		outboxService,
 		db,
 	)
 	if err != nil {
@@ -132,6 +173,8 @@ func run() (errReturned error) {
 
 	eg.Go(func() error { return srvClient.Run(ctx) })
 	// Run services.
+
+	eg.Go(func() error { return outboxService.Run(ctx) })
 	// Ждут своего часа.
 	// ...
 

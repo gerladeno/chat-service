@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
+
 	"github.com/gerladeno/chat-service/internal/store"
 	"github.com/gerladeno/chat-service/internal/store/job"
 	"github.com/gerladeno/chat-service/internal/types"
@@ -24,9 +26,9 @@ func (r *Repo) FindAndReserveJob(ctx context.Context, until time.Time) (Job, err
 	var result Job
 	err := r.db.RunInTx(ctx, func(ctx context.Context) error {
 		foundJob, err := r.db.Job(ctx).Query().Where(job.And(
-			job.AvailableAtLTE(time.Now()),
-			job.ReservedUntilLTE(time.Now()),
-		)).Order(job.ByCreatedAt()).ForUpdate().First(ctx)
+			job.AvailableAtLT(time.Now()),
+			job.ReservedUntilLT(time.Now()),
+		)).Order(job.ByReservedUntil(entsql.OrderNullsFirst())).ForUpdate().First(ctx)
 		switch {
 		case store.IsNotFound(err):
 			return ErrNoJobs

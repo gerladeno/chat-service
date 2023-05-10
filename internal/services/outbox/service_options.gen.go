@@ -6,7 +6,6 @@ import (
 	"time"
 
 	jobsrepo "github.com/gerladeno/chat-service/internal/repositories/jobs"
-	"github.com/gerladeno/chat-service/internal/store"
 	errors461e464ebed9 "github.com/kazhuravlev/options-gen/pkg/errors"
 	validator461e464ebed9 "github.com/kazhuravlev/options-gen/pkg/validator"
 )
@@ -18,7 +17,7 @@ func NewOptions(
 	idleTime time.Duration,
 	reserveFor time.Duration,
 	jobsRepo *jobsrepo.Repo,
-	db *store.Database,
+	db transactor,
 	options ...OptOptionsSetter,
 ) Options {
 	o := Options{}

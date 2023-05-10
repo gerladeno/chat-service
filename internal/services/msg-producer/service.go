@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/segmentio/kafka-go"
+	"go.uber.org/zap"
 )
 
 type KafkaWriter interface {
@@ -52,6 +53,8 @@ func New(opts Options) (*Service, error) {
 		if err != nil {
 			return nil, fmt.Errorf("initing encryption NewGCM: %v", err)
 		}
+	} else {
+		zap.L().Named(serviceName).Info("encryption disabled")
 	}
 
 	return &Service{
