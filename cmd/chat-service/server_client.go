@@ -22,18 +22,21 @@ import (
 const nameServerClient = "server-client"
 
 func initServerClient(
+	isProd bool,
 	addr string,
 	allowOrigins []string,
 	v1Swagger *openapi3.T,
+
 	client *keycloakclient.Client,
 	resource string,
 	role string,
-	isProd bool,
+
+	db *store.Database,
 	msgRepo *messagesrepo.Repo,
 	chatRepo *chatsrepo.Repo,
 	problemRepo *problemsrepo.Repo,
+
 	outboxService *outbox.Service,
-	db *store.Database,
 ) (*serverclient.Server, error) {
 	lg := zap.L().Named(nameServerClient)
 

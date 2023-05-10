@@ -68,6 +68,7 @@ func (u UseCase) Handle(ctx context.Context, req Request) (Response, error) {
 	if err := req.Validate(); err != nil {
 		return Response{}, ErrInvalidRequest
 	}
+
 	var msg *messagesrepo.Message
 	var err error
 	if err = u.tx.RunInTx(ctx, func(ctx context.Context) error {
@@ -78,21 +79,26 @@ func (u UseCase) Handle(ctx context.Context, req Request) (Response, error) {
 		case !errors.Is(err, messagesrepo.ErrMsgNotFound):
 			return fmt.Errorf("checking if msg already exists: %v", err)
 		}
+
 		chatID, err := u.chatRepo.CreateIfNotExists(ctx, req.ClientID)
 		if err != nil {
-			return ErrChatNotCreated
+			return fmt.Errorf("%w: %v", ErrChatNotCreated, err)
 		}
+
 		problemID, err := u.problemRepo.CreateIfNotExists(ctx, chatID)
 		if err != nil {
-			return ErrProblemNotCreated
+			return fmt.Errorf("%w: %v", ErrProblemNotCreated, err)
 		}
+
 		msg, err = u.msgRepo.CreateClientVisible(ctx, req.ID, problemID, chatID, req.ClientID, req.MessageBody)
 		if err != nil {
 			return fmt.Errorf("creating new message: %v", err)
 		}
+
 		if _, err = u.outboxService.Put(ctx, sendclientmessagejob.Name, msg.ID.String(), time.Now()); err != nil {
 			return fmt.Errorf("creating a job for message publishing: %v", err)
 		}
+
 		return nil
 	}); err != nil {
 		return Response{}, err

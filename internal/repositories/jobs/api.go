@@ -31,7 +31,7 @@ func (r *Repo) FindAndReserveJob(ctx context.Context, until time.Time) (Job, err
 		)).Order(job.ByReservedUntil(entsql.OrderNullsFirst())).ForUpdate().First(ctx)
 		switch {
 		case store.IsNotFound(err):
-			return ErrNoJobs
+			return fmt.Errorf("%w: %v", ErrNoJobs, err)
 		case err != nil:
 			return fmt.Errorf("finding a job: %v", err)
 		}

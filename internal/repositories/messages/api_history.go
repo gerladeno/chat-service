@@ -25,8 +25,8 @@ type Cursor struct {
 }
 
 func (c Cursor) validate() error {
-	if err := validatePgeSize(c.PageSize); err != nil || c.LastCreatedAt.IsZero() {
-		return ErrInvalidCursor
+	if err := validatePageSize(c.PageSize); err != nil || c.LastCreatedAt.IsZero() {
+		return fmt.Errorf("%w: %v", ErrInvalidCursor, err)
 	}
 	return nil
 }
@@ -47,7 +47,7 @@ func (r *Repo) GetClientChatMessages(
 		pageSize = cursor.PageSize
 		query = query.Where(message.IsVisibleForClient(true), message.CreatedAtLT(cursor.LastCreatedAt))
 	case pageSize != 0:
-		if err := validatePgeSize(pageSize); err != nil {
+		if err := validatePageSize(pageSize); err != nil {
 			return nil, nil, err
 		}
 		query = query.Where(message.IsVisibleForClient(true))
@@ -79,7 +79,7 @@ func (r *Repo) GetClientChatMessages(
 	return result, cursor, nil
 }
 
-func validatePgeSize(pageSize int) error {
+func validatePageSize(pageSize int) error {
 	if pageSize < 10 || pageSize > 100 {
 		return ErrInvalidPageSize
 	}

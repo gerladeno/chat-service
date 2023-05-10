@@ -15,6 +15,8 @@ import (
 const (
 	ErrorCodeCreateChatError = iota + 1000
 	ErrorCodeCreateProblemError
+	CreateChatError    = `create chat error`
+	CreateProblemError = `create problem error`
 )
 
 func (h Handlers) PostSendMessage(eCtx echo.Context, params PostSendMessageParams) error {
@@ -31,9 +33,9 @@ func (h Handlers) PostSendMessage(eCtx echo.Context, params PostSendMessageParam
 	case errors.Is(err, sendmessage.ErrInvalidRequest):
 		return servererrors.NewServerError(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), err)
 	case errors.Is(err, sendmessage.ErrChatNotCreated):
-		return servererrors.NewServerError(ErrorCodeCreateChatError, err.Error(), err)
+		return servererrors.NewServerError(ErrorCodeCreateChatError, CreateChatError, err)
 	case errors.Is(err, sendmessage.ErrProblemNotCreated):
-		return servererrors.NewServerError(ErrorCodeCreateProblemError, err.Error(), err)
+		return servererrors.NewServerError(ErrorCodeCreateProblemError, CreateProblemError, err)
 	case err != nil:
 		return err
 	}

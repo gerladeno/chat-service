@@ -41,6 +41,7 @@ func run() (errReturned error) {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	// Config and logs
 	cfg, err := config.ParseAndValidate(*configPath)
 	if err != nil {
 		return fmt.Errorf("parse and validate config %q: %v", *configPath, err)
@@ -56,18 +57,13 @@ func run() (errReturned error) {
 	}
 	defer logger.Sync()
 
+	// Swagger
 	swagger, err := clientv1.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("get swagger: %v", err)
 	}
-	srvDebug, err := serverdebug.New(serverdebug.NewOptions(
-		cfg.Servers.Debug.Addr,
-		swagger,
-	))
-	if err != nil {
-		return fmt.Errorf("init debug server: %v", err)
-	}
 
+	// Keycloak
 	kcClient, err := keycloakclient.New(keycloakclient.NewOptions(
 		cfg.Clients.Keycloak.BasePath,
 		cfg.Clients.Keycloak.Realm,
@@ -80,6 +76,7 @@ func run() (errReturned error) {
 		return fmt.Errorf("init keycloak client: %v", err)
 	}
 
+	// Storage
 	psqlClient, err := store.NewPSQLClient(store.NewPSQLOptions(
 		cfg.DB.Postgres.Addr,
 		cfg.DB.Postgres.User,
@@ -94,6 +91,7 @@ func run() (errReturned error) {
 		return fmt.Errorf("migrate schema: %v", err)
 	}
 
+	// Repos
 	db := store.NewDatabase(psqlClient)
 	msgRepo, err := messagesrepo.New(messagesrepo.NewOptions(db))
 	if err != nil {
@@ -112,6 +110,7 @@ func run() (errReturned error) {
 		return fmt.Errorf("init jobs repo: %v", err)
 	}
 
+	// Init services
 	msgProducer, err := msgproducer.New(msgproducer.NewOptions(
 		msgproducer.NewKafkaWriter(
 			cfg.Services.MsgProducer.Brokers,
@@ -144,24 +143,35 @@ func run() (errReturned error) {
 
 	outboxService.MustRegisterJob(sendClientMessageJob)
 
+	srvDebug, err := serverdebug.New(serverdebug.NewOptions(
+		cfg.Servers.Debug.Addr,
+		swagger,
+	))
+	if err != nil {
+		return fmt.Errorf("init debug server: %v", err)
+	}
+
 	srvClient, err := initServerClient(
+		cfg.Global.IsProd(),
 		cfg.Servers.Client.Addr,
 		cfg.Servers.Client.AllowOrigins,
 		swagger,
+
 		kcClient,
 		cfg.Servers.Client.RequiredAccess.Resource,
 		cfg.Servers.Client.RequiredAccess.Role,
-		cfg.Global.IsProd(),
+
+		db,
 		msgRepo,
 		chatRepo,
 		problemsRepo,
 		outboxService,
-		db,
 	)
 	if err != nil {
 		return fmt.Errorf("init chat server: %v", err)
 	}
 
+	// Run services
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
