@@ -7,6 +7,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 
+	"github.com/gerladeno/chat-service/internal/store/problem"
 	"github.com/gerladeno/chat-service/internal/types"
 )
 
@@ -21,4 +22,15 @@ func (r *Repo) CreateIfNotExists(ctx context.Context, chatID types.ChatID) (type
 		return types.NewProblemID(), fmt.Errorf("upserting problem: %v", err)
 	}
 	return problemID, nil
+}
+
+func (r *Repo) GetManagerOpenProblemsCount(ctx context.Context, managerID types.UserID) (int, error) {
+	count, err := r.db.Problem(ctx).Query().Where(
+		problem.ManagerID(managerID),
+		problem.ResolvedAtIsNil(),
+	).Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("get manager open problems count: %v", err)
+	}
+	return count, nil
 }
