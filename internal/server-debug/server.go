@@ -25,14 +25,16 @@ const (
 
 //go:generate options-gen -out-filename=server_options.gen.go -from-struct=Options
 type Options struct {
-	addr      string      `option:"mandatory" validate:"required,hostname_port"`
-	v1Swagger *openapi3.T `option:"mandatory" validate:"required"`
+	addr             string      `option:"mandatory" validate:"required,hostname_port"`
+	v1ClientSwagger  *openapi3.T `option:"mandatory" validate:"required"`
+	v1ManagerSwagger *openapi3.T `option:"mandatory" validate:"required"`
 }
 
 type Server struct {
-	lg      *zap.Logger
-	srv     *http.Server
-	swagger *openapi3.T
+	lg             *zap.Logger
+	srv            *http.Server
+	clientSwagger  *openapi3.T
+	managerSwagger *openapi3.T
 }
 
 func New(opts Options) (*Server, error) {
@@ -51,7 +53,8 @@ func New(opts Options) (*Server, error) {
 			Handler:           e,
 			ReadHeaderTimeout: readHeaderTimeout,
 		},
-		swagger: opts.v1Swagger,
+		clientSwagger:  opts.v1ClientSwagger,
+		managerSwagger: opts.v1ManagerSwagger,
 	}
 	index := newIndexPage()
 	e.GET("/version", s.Version)
@@ -64,6 +67,8 @@ func New(opts Options) (*Server, error) {
 	index.addPage("/debug/error", "Debug Sentry error event")
 	e.GET("/schema/client", s.SchemaClient)
 	index.addPage("/schema/client", "Get client OpenAPI specification")
+	e.GET("/schema/manager", s.SchemaManager)
+	index.addPage("/schema/manager", "Get manager OpenAPI specification")
 
 	e.GET("/", index.handler)
 	return s, nil
@@ -118,12 +123,23 @@ func (s *Server) SendErrorEvent(eCtx echo.Context) error {
 }
 
 func (s *Server) SchemaClient(eCtx echo.Context) error {
-	data, err := s.swagger.MarshalJSON()
+	data, err := s.clientSwagger.MarshalJSON()
 	if err != nil {
-		return fmt.Errorf("marshalling swager json: %w", err)
+		return fmt.Errorf("marshalling client swager json: %v", err)
 	}
 	if err = eCtx.Blob(http.StatusOK, "application/json", data); err != nil {
-		return fmt.Errorf("sending data: %w", err)
+		return fmt.Errorf("sending client swager data: %v", err)
+	}
+	return nil
+}
+
+func (s *Server) SchemaManager(eCtx echo.Context) error {
+	data, err := s.managerSwagger.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("marshalling manager swagger json: %v", err)
+	}
+	if err = eCtx.Blob(http.StatusOK, "application/json", data); err != nil {
+		return fmt.Errorf("sending manager swager data: %v", err)
 	}
 	return nil
 }

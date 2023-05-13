@@ -4,15 +4,16 @@ import (
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
 	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
 	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
 	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
-	serverclient "github.com/gerladeno/chat-service/internal/server-client"
-	"github.com/gerladeno/chat-service/internal/server-client/errhandler"
+	"github.com/gerladeno/chat-service/internal/server"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
+	"github.com/gerladeno/chat-service/internal/server/errhandler"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	"github.com/gerladeno/chat-service/internal/store"
 	gethistory "github.com/gerladeno/chat-service/internal/usecases/client/get-history"
@@ -37,7 +38,7 @@ func initServerClient(
 	problemRepo *problemsrepo.Repo,
 
 	outboxService *outbox.Service,
-) (*serverclient.Server, error) {
+) (*server.Server, error) {
 	lg := zap.L().Named(nameServerClient)
 
 	getHistoryUseCase, err := gethistory.New(gethistory.NewOptions(msgRepo))
@@ -59,12 +60,14 @@ func initServerClient(
 		return nil, fmt.Errorf("create error handler: %v", err)
 	}
 
-	srv, err := serverclient.New(serverclient.NewOptions(
+	srv, err := server.New(server.NewOptions(
 		lg,
 		addr,
 		allowOrigins,
 		v1Swagger,
-		v1Handlers,
+		func(g *echo.Group) {
+			clientv1.RegisterHandlers(g, v1Handlers)
+		},
 		client,
 		resource,
 		role,

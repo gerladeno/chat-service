@@ -21,6 +21,9 @@ import (
 	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
+	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
+	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
+	inmemmanagerpool "github.com/gerladeno/chat-service/internal/services/manager-pool/in-mem"
 	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
@@ -58,9 +61,13 @@ func run() (errReturned error) {
 	defer logger.Sync()
 
 	// Swagger
-	swagger, err := clientv1.GetSwagger()
+	clientSwagger, err := clientv1.GetSwagger()
 	if err != nil {
-		return fmt.Errorf("get swagger: %v", err)
+		return fmt.Errorf("get client swagger: %v", err)
+	}
+	managerSwagger, err := managerv1.GetSwagger()
+	if err != nil {
+		return fmt.Errorf("get manager swagger: %v", err)
 	}
 
 	// Keycloak
@@ -141,21 +148,50 @@ func run() (errReturned error) {
 		return fmt.Errorf("init outbox service: %v", err)
 	}
 
+	managerPool := inmemmanagerpool.New()
+
+	managerLoad, err := managerload.New(managerload.NewOptions(
+		cfg.Services.ManagerLoad.MaxProblemsAtSameTime,
+		problemsRepo,
+	))
+	if err != nil {
+		return fmt.Errorf("init manager load service")
+	}
+
 	outboxService.MustRegisterJob(sendClientMessageJob)
 
+	// Init servers
 	srvDebug, err := serverdebug.New(serverdebug.NewOptions(
 		cfg.Servers.Debug.Addr,
-		swagger,
+		clientSwagger,
+		managerSwagger,
 	))
 	if err != nil {
 		return fmt.Errorf("init debug server: %v", err)
+	}
+
+	srvManager, err := initServerManager(
+		cfg.Global.IsProd(),
+		cfg.Servers.Manager.Addr,
+		cfg.Servers.Manager.AllowOrigins,
+		managerSwagger,
+
+		kcClient,
+		cfg.Servers.Manager.RequiredAccess.Resource,
+		cfg.Servers.Manager.RequiredAccess.Role,
+
+		managerLoad,
+		managerPool,
+	)
+	if err != nil {
+		return fmt.Errorf("init manager chat server: %v", err)
 	}
 
 	srvClient, err := initServerClient(
 		cfg.Global.IsProd(),
 		cfg.Servers.Client.Addr,
 		cfg.Servers.Client.AllowOrigins,
-		swagger,
+		clientSwagger,
 
 		kcClient,
 		cfg.Servers.Client.RequiredAccess.Resource,
@@ -168,21 +204,20 @@ func run() (errReturned error) {
 		outboxService,
 	)
 	if err != nil {
-		return fmt.Errorf("init chat server: %v", err)
+		return fmt.Errorf("init client chat server: %v", err)
 	}
 
-	// Run services
 	eg, ctx := errgroup.WithContext(ctx)
-
 	eg.Go(func() error {
 		<-ctx.Done()
 		return psqlClient.Close()
 	})
-	// Run servers.
+	// Run servers and services.
 	eg.Go(func() error { return srvDebug.Run(ctx) })
 
 	eg.Go(func() error { return srvClient.Run(ctx) })
-	// Run services.
+
+	eg.Go(func() error { return srvManager.Run(ctx) })
 
 	eg.Go(func() error { return outboxService.Run(ctx) })
 	// Ждут своего часа.

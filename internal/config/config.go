@@ -25,8 +25,9 @@ type LogConfig struct {
 }
 
 type ServersConfig struct {
-	Debug  DebugServerConfig  `toml:"debug"`
-	Client ClientServerConfig `toml:"client"`
+	Debug   DebugServerConfig `toml:"debug"`
+	Client  ServerConfig      `toml:"client"`
+	Manager ServerConfig      `toml:"manager"`
 }
 
 type DebugServerConfig struct {
@@ -37,7 +38,7 @@ type SentryConfig struct {
 	DSN string `toml:"dsn"`
 }
 
-type ClientServerConfig struct {
+type ServerConfig struct {
 	Addr           string         `toml:"addr" validate:"required,hostname_port"`
 	AllowOrigins   []string       `toml:"allow_origins" validate:"required"`
 	RequiredAccess RequiredAccess `toml:"required_access" validate:"required"`
@@ -75,6 +76,7 @@ type PGConfig struct {
 type ServiceConfig struct {
 	MsgProducer MsgProducerConfig `toml:"msg_producer"`
 	Outbox      OutboxConfig      `toml:"outbox"`
+	ManagerLoad ManagerLoadConfig `toml:"manager_load"`
 }
 
 type MsgProducerConfig struct {
@@ -88,4 +90,8 @@ type OutboxConfig struct {
 	Workers    int           `toml:"workers" validate:"required"`
 	IdleTime   time.Duration `toml:"idle_time" validate:"required"`
 	ReserveFor time.Duration `toml:"reserve_for"`
+}
+
+type ManagerLoadConfig struct {
+	MaxProblemsAtSameTime int `toml:"max_problems_at_same_time" validate:"required,min=1,max=30"`
 }

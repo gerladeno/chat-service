@@ -54,6 +54,9 @@ func (s *Service) Put(_ context.Context, managerID types.UserID) error {
 	if len(s.managers) >= managersMax {
 		return ErrCapacityExceeded
 	}
+	if _, ok := s.managers[managerID]; ok {
+		return nil
+	}
 	s.managers[managerID] = struct{}{}
 	s.queue = append(s.queue, managerID)
 	return nil

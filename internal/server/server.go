@@ -1,4 +1,4 @@
-package serverclient
+package server
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gerladeno/chat-service/internal/middlewares"
-	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 )
 
 const (
@@ -27,15 +26,16 @@ const (
 
 //go:generate options-gen -out-filename=server_options.gen.go -from-struct=Options
 type Options struct {
-	logger       *zap.Logger              `option:"mandatory" validate:"required"`
-	addr         string                   `option:"mandatory" validate:"required,hostname_port"`
-	allowOrigins []string                 `option:"mandatory" validate:"min=1"`
-	v1Swagger    *openapi3.T              `option:"mandatory" validate:"required"`
-	v1Handlers   clientv1.ServerInterface `option:"mandatory" validate:"required"`
-	client       middlewares.Introspector `option:"mandatory" validate:"required"`
-	resource     string                   `option:"mandatory" validate:"required"`
-	role         string                   `option:"mandatory" validate:"required"`
-	errHandler   echo.HTTPErrorHandler    `option:"mandatory" validate:"required"`
+	logger       *zap.Logger `option:"mandatory" validate:"required"`
+	addr         string      `option:"mandatory" validate:"required,hostname_port"`
+	allowOrigins []string    `option:"mandatory" validate:"min=1"`
+	v1Swagger    *openapi3.T `option:"mandatory" validate:"required"`
+	// clientv1.RegisterHandlers(v1, clientv1.v1Handlers)
+	registerHandlersFunc func(g *echo.Group)      `option:"mandatory" validate:"required"`
+	client               middlewares.Introspector `option:"mandatory" validate:"required"`
+	resource             string                   `option:"mandatory" validate:"required"`
+	role                 string                   `option:"mandatory" validate:"required"`
+	errHandler           echo.HTTPErrorHandler    `option:"mandatory" validate:"required"`
 }
 
 type Server struct {
@@ -68,7 +68,7 @@ func New(opts Options) (*Server, error) {
 			AuthenticationFunc:  openapi3filter.NoopAuthenticationFunc,
 		},
 	}))
-	clientv1.RegisterHandlers(v1, opts.v1Handlers)
+	opts.registerHandlersFunc(v1)
 
 	s := Server{
 		lg: opts.logger,

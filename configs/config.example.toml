@@ -7,6 +7,7 @@ level = "info"
 [servers]
 [servers.debug]
 addr = ":8079"
+
 [servers.client]
 addr = ":8080"
 allow_origins = ["http://localhost:3011", "http://localhost:3000"]
@@ -14,8 +15,15 @@ allow_origins = ["http://localhost:3011", "http://localhost:3000"]
 resource = "chat-ui-client"
 role = "support-chat-client"
 
+[servers.manager]
+addr = ":8081"
+allow_origins = ["http://localhost:3011", "http://localhost:3001"]
+[servers.manager.required_access]
+resource = "chat-ui-manager"
+role = "support-chat-manager"
+
 [sentry]
-dsn = ""
+dsn = "http://11617821b1a2471a916c3fbc5bbd1163@localhost:9000/2"
 
 [clients]
 [clients.keycloak]
@@ -44,3 +52,6 @@ encrypt_key = "" # Leave it blank to disable encryption.
 workers = 2
 idle_time = "1s"
 reserve_for = "5m"
+
+[services.manager_load]
+max_problems_at_same_time = 5
