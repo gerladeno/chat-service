@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
@@ -22,12 +23,15 @@ import (
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
+	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
 	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
 	inmemmanagerpool "github.com/gerladeno/chat-service/internal/services/manager-pool/in-mem"
 	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
 	"github.com/gerladeno/chat-service/internal/store"
+	"github.com/gerladeno/chat-service/internal/types"
+	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
 
 var configPath = flag.String("config", "configs/config.toml", "Path to config file")
@@ -160,6 +164,35 @@ func run() (errReturned error) {
 
 	outboxService.MustRegisterJob(sendClientMessageJob)
 
+	// ws
+	clientWSShutdownCh := make(chan struct{})
+	clientWSUpgrader := websocketstream.NewUpgrader(cfg.Servers.Client.AllowOrigins, cfg.Servers.Client.SecWSProtocol)
+	clientWSHandler, err := websocketstream.NewHTTPHandler(websocketstream.NewOptions(
+		zap.L(),
+		dummyEventStream{},
+		dummyAdapter{},
+		websocketstream.JSONEventWriter{},
+		clientWSUpgrader,
+		clientWSShutdownCh,
+	))
+	if err != nil {
+		return fmt.Errorf("init client ws handler: %v", err)
+	}
+
+	managerWSShutdownCh := make(chan struct{})
+	managerWSUpgrader := websocketstream.NewUpgrader(cfg.Servers.Manager.AllowOrigins, cfg.Servers.Manager.SecWSProtocol)
+	managerWSHandler, err := websocketstream.NewHTTPHandler(websocketstream.NewOptions(
+		zap.L(),
+		dummyEventStream{},
+		dummyAdapter{},
+		websocketstream.JSONEventWriter{},
+		managerWSUpgrader,
+		managerWSShutdownCh,
+	))
+	if err != nil {
+		return fmt.Errorf("init manager ws handler: %v", err)
+	}
+
 	// Init servers
 	srvDebug, err := serverdebug.New(serverdebug.NewOptions(
 		cfg.Servers.Debug.Addr,
@@ -179,9 +212,11 @@ func run() (errReturned error) {
 		kcClient,
 		cfg.Servers.Manager.RequiredAccess.Resource,
 		cfg.Servers.Manager.RequiredAccess.Role,
+		cfg.Servers.Manager.SecWSProtocol,
 
 		managerLoad,
 		managerPool,
+		managerWSHandler,
 	)
 	if err != nil {
 		return fmt.Errorf("init manager chat server: %v", err)
@@ -196,12 +231,14 @@ func run() (errReturned error) {
 		kcClient,
 		cfg.Servers.Client.RequiredAccess.Resource,
 		cfg.Servers.Client.RequiredAccess.Role,
+		cfg.Servers.Client.SecWSProtocol,
 
 		db,
 		msgRepo,
 		chatRepo,
 		problemsRepo,
 		outboxService,
+		clientWSHandler,
 	)
 	if err != nil {
 		return fmt.Errorf("init client chat server: %v", err)
@@ -210,6 +247,8 @@ func run() (errReturned error) {
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		<-ctx.Done()
+		go func() { managerWSShutdownCh <- struct{}{} }()
+		go func() { clientWSShutdownCh <- struct{}{} }()
 		return psqlClient.Close()
 	})
 	// Run servers and services.
@@ -228,4 +267,22 @@ func run() (errReturned error) {
 	}
 
 	return nil
+}
+
+// tmp.
+type dummyAdapter struct{}
+
+func (dummyAdapter) Adapt(event eventstream.Event) (any, error) {
+	return event, nil
+}
+
+type dummyEventStream struct{}
+
+func (dummyEventStream) Subscribe(ctx context.Context, _ types.UserID) (<-chan eventstream.Event, error) {
+	events := make(chan eventstream.Event)
+	go func() {
+		defer close(events)
+		<-ctx.Done()
+	}()
+	return events, nil
 }

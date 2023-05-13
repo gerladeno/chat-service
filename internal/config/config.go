@@ -41,6 +41,7 @@ type SentryConfig struct {
 type ServerConfig struct {
 	Addr           string         `toml:"addr" validate:"required,hostname_port"`
 	AllowOrigins   []string       `toml:"allow_origins" validate:"required"`
+	SecWSProtocol  string         `toml:"sec_ws_protocol" validate:"required"`
 	RequiredAccess RequiredAccess `toml:"required_access" validate:"required"`
 }
 

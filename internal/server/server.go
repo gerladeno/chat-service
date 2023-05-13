@@ -7,9 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	oapimdlwr "github.com/deepmap/oapi-codegen/pkg/middleware"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
@@ -26,15 +23,14 @@ const (
 
 //go:generate options-gen -out-filename=server_options.gen.go -from-struct=Options
 type Options struct {
-	logger       *zap.Logger `option:"mandatory" validate:"required"`
-	addr         string      `option:"mandatory" validate:"required,hostname_port"`
-	allowOrigins []string    `option:"mandatory" validate:"min=1"`
-	v1Swagger    *openapi3.T `option:"mandatory" validate:"required"`
-	// clientv1.RegisterHandlers(v1, clientv1.v1Handlers)
-	registerHandlersFunc func(g *echo.Group)      `option:"mandatory" validate:"required"`
+	logger               *zap.Logger              `option:"mandatory" validate:"required"`
+	addr                 string                   `option:"mandatory" validate:"required,hostname_port"`
+	allowOrigins         []string                 `option:"mandatory" validate:"min=1"`
+	registerHandlersFunc func(e *echo.Echo)       `option:"mandatory" validate:"required"`
 	client               middlewares.Introspector `option:"mandatory" validate:"required"`
 	resource             string                   `option:"mandatory" validate:"required"`
 	role                 string                   `option:"mandatory" validate:"required"`
+	wsSecProtocol        string                   `option:"mandatory" validate:"required"`
 	errHandler           echo.HTTPErrorHandler    `option:"mandatory" validate:"required"`
 }
 
@@ -57,18 +53,10 @@ func New(opts Options) (*Server, error) {
 			AllowOrigins: opts.allowOrigins,
 			AllowMethods: []string{http.MethodPost},
 		}),
-		middlewares.NewKeycloakTokenAuth(opts.client, opts.resource, opts.role),
+		middlewares.NewKeycloakTokenAuth(opts.client, opts.resource, opts.role, opts.wsSecProtocol),
 		middlewares.RequestLogger(opts.logger),
 	)
-
-	v1 := e.Group("v1", oapimdlwr.OapiRequestValidatorWithOptions(opts.v1Swagger, &oapimdlwr.Options{
-		Options: openapi3filter.Options{
-			ExcludeRequestBody:  false,
-			ExcludeResponseBody: true,
-			AuthenticationFunc:  openapi3filter.NoopAuthenticationFunc,
-		},
-	}))
-	opts.registerHandlersFunc(v1)
+	opts.registerHandlersFunc(e)
 
 	s := Server{
 		lg: opts.logger,
