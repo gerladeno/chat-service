@@ -20,17 +20,18 @@ import (
 	jobsrepo "github.com/gerladeno/chat-service/internal/repositories/jobs"
 	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
 	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
+	clientevents "github.com/gerladeno/chat-service/internal/server-client/events"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
 	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
+	inmemeventstream "github.com/gerladeno/chat-service/internal/services/event-stream/in-mem"
 	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
 	inmemmanagerpool "github.com/gerladeno/chat-service/internal/services/manager-pool/in-mem"
 	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
 	"github.com/gerladeno/chat-service/internal/store"
-	"github.com/gerladeno/chat-service/internal/types"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
 
@@ -68,6 +69,10 @@ func run() (errReturned error) {
 	clientSwagger, err := clientv1.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("get client swagger: %v", err)
+	}
+	clientEventSwagger, err := clientevents.GetSwagger()
+	if err != nil {
+		return fmt.Errorf("get client events swagger: %v", err)
 	}
 	managerSwagger, err := managerv1.GetSwagger()
 	if err != nil {
@@ -133,9 +138,12 @@ func run() (errReturned error) {
 		return fmt.Errorf("init msg producer: %v", err)
 	}
 
+	eventStream := inmemeventstream.New()
+
 	sendClientMessageJob, err := sendclientmessagejob.New(sendclientmessagejob.NewOptions(
 		msgProducer,
 		msgRepo,
+		eventStream,
 	))
 	if err != nil {
 		return fmt.Errorf("init send client message job: %v", err)
@@ -169,8 +177,8 @@ func run() (errReturned error) {
 	clientWSUpgrader := websocketstream.NewUpgrader(cfg.Servers.Client.AllowOrigins, cfg.Servers.Client.SecWSProtocol)
 	clientWSHandler, err := websocketstream.NewHTTPHandler(websocketstream.NewOptions(
 		zap.L(),
-		dummyEventStream{},
-		dummyAdapter{},
+		eventStream,
+		clientevents.Adapter{},
 		websocketstream.JSONEventWriter{},
 		clientWSUpgrader,
 		clientWSShutdownCh,
@@ -183,7 +191,7 @@ func run() (errReturned error) {
 	managerWSUpgrader := websocketstream.NewUpgrader(cfg.Servers.Manager.AllowOrigins, cfg.Servers.Manager.SecWSProtocol)
 	managerWSHandler, err := websocketstream.NewHTTPHandler(websocketstream.NewOptions(
 		zap.L(),
-		dummyEventStream{},
+		eventStream,
 		dummyAdapter{},
 		websocketstream.JSONEventWriter{},
 		managerWSUpgrader,
@@ -198,6 +206,7 @@ func run() (errReturned error) {
 		cfg.Servers.Debug.Addr,
 		clientSwagger,
 		managerSwagger,
+		clientEventSwagger,
 	))
 	if err != nil {
 		return fmt.Errorf("init debug server: %v", err)
@@ -274,15 +283,4 @@ type dummyAdapter struct{}
 
 func (dummyAdapter) Adapt(event eventstream.Event) (any, error) {
 	return event, nil
-}
-
-type dummyEventStream struct{}
-
-func (dummyEventStream) Subscribe(ctx context.Context, _ types.UserID) (<-chan eventstream.Event, error) {
-	events := make(chan eventstream.Event)
-	go func() {
-		defer close(events)
-		<-ctx.Done()
-	}()
-	return events, nil
 }

@@ -21,12 +21,13 @@ vars:
 
   TYPES: |
     ChatID
+    EventID
+    FailedJobID
+    JobID
     MessageID
     ProblemID
-    UserID
     RequestID
-    JobID
-    FailedJobID
+    UserID
   TYPES_PKG: types
   TYPES_DST: ./internal/types/types.gen.go
 
@@ -40,6 +41,10 @@ vars:
     github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
 
   ENT_SCHEMA: ./internal/store/schema
+
+  CLIENT_EVENTS_SRC: ./api/client.events.swagger.yml
+  CLIENT_EVENTS_DST: ./internal/server-client/events/events.gen.go
+  CLIENT_EVENTS_PKG: clientevents
 
   CLIENT_V1_SRC: ./api/client.v1.swagger.yml
   CLIENT_V1_DST: ./internal/server-client/v1/server.gen.go
@@ -130,13 +135,15 @@ tasks:
 
   ent:gen:
     cmds:
-      - go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert --feature sql/lock --target ./internal/store --template ./internal/store/templates/ ./internal/store/schema
+      - go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert,sql/lock --target ./internal/store --template ./internal/store/templates/ {{.ENT_SCHEMA}}
       - task: tidy
 
   gen:api:
     cmds:
       - oapi-codegen -old-config-style -package {{ .CLIENT_V1_PKG }} {{ $.CLIENT_V1_SRC }} > {{ $.CLIENT_V1_DST }}
       - oapi-codegen -old-config-style -package {{ .MANAGER_V1_PKG }} {{ $.MANAGER_V1_SRC }} > {{ $.MANAGER_V1_DST }}
+      - echo "Generate client events..."
+      - oapi-codegen --old-config-style -generate skip-prune,types,spec -package {{.CLIENT_EVENTS_PKG}} {{.CLIENT_EVENTS_SRC}} > {{.CLIENT_EVENTS_DST}}
 
   gen:e2e:
     cmds:

@@ -57,7 +57,7 @@ func (h *HTTPHandler) Serve(eCtx echo.Context) error {
 		return fmt.Errorf("upgrade connection to ws: %v", err)
 	}
 	closer := newWsCloser(h.logger, ws)
-	eventsCh, err := h.eventStream.Subscribe(ctx, userID)
+	eventsCh, err := h.eventStream.Subscribe(context.Background(), userID)
 	if err != nil {
 		return fmt.Errorf("subscribe on event stream: %v", err)
 	}

@@ -6,6 +6,7 @@ type OptOptionsSetter func(o *Options)
 func NewOptions(
 	messageProducer messageProducer,
 	messageRepository messageRepository,
+	eventStream eventStream,
 	options ...OptOptionsSetter,
 ) Options {
 	o := Options{}
@@ -14,6 +15,7 @@ func NewOptions(
 
 	o.messageProducer = messageProducer
 	o.messageRepository = messageRepository
+	o.eventStream = eventStream
 
 	for _, opt := range options {
 		opt(&o)
