@@ -48,7 +48,7 @@ debug_mode = true
 brokers = ["localhost:9092"]
 topic = "chat.messages"
 batch_size = 1
-encrypt_key = "" # Leave it blank to disable encryption.
+encrypt_key = "51655468576D5A7134743777397A2443" # Leave it blank to disable encryption.
 
 [services.outbox]
 workers = 2
@@ -57,3 +57,27 @@ reserve_for = "5m"
 
 [services.manager_load]
 max_problems_at_same_time = 5
+
+[services.afc_verdicts_processor]
+verdicts_signing_public_key = """
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr1sb/e5Mj2i47/c4lfGN
+k8y4C2qG/Ww0wVGgCqb3Fm9+ColrliT3Pzk8cnSPM3b9+CoU8+5nFlyhBcGHFPLC
+xxVa2rcZfam+TiEp2cDgDbSxxeH8Ysx4eXOMjWgfpmgT4wjM9wV8zA4QU0qNq+TR
+uvrj6dHRxdxqH6nwH3gVialDJKiQ8qsd6trq4Gqi9djVf+LLeOeQchGy5rNd2YC9
+zMQ/UCTU9t9gmkWFZgSwLV9FXN4Sl0jws6LOaiUU71HNFo5E8fadRTdcXZI660zf
+nA8cd2H9UydempI5/WJgGZfvAj6xqlM2OTu66+C/0FiL3WA0bL3Cjiun2VC4gEoO
+zQIDAQAB
+-----END PUBLIC KEY-----
+""" # leave blank to not use messages verivication
+backoff_initial_interval = "100ms"
+backoff_max_elapsed_time = "5s"
+backoff_factor = 2
+brokers = ["localhost:9092"]
+consumers = 8
+consumer_group = "afc-verdict-processor"
+verdict_topic = "afc.msg-verdicts"
+verdict_topic_dlq = "afc.msg-verdicts.dlq"
+process_batch_size = 4
+process_batch_max_timeout = "100ms"
+retries = 3

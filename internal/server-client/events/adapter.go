@@ -32,7 +32,14 @@ func (Adapter) Adapt(ev eventstream.Event) (any, error) {
 			RequestId: v.RequestID,
 		}, nil
 	case *eventstream.MessageSentEvent:
-		return MessageEventSent{
+		return MessageSentEvent{
+			EventId:   v.EventID,
+			EventType: v.EventType,
+			MessageId: v.MessageID,
+			RequestId: v.RequestID,
+		}, nil
+	case *eventstream.MessageBlockedEvent:
+		return MessageBlockedEvent{
 			EventId:   v.EventID,
 			EventType: v.EventType,
 			MessageId: v.MessageID,

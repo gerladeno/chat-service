@@ -12,46 +12,36 @@ components:
     Event:
       oneOf:
         - $ref: "#/components/schemas/NewMessageEvent"
-        - $ref: "#/components/schemas/MessageEventSent"
+        - $ref: "#/components/schemas/MessageSentEvent"
+        - $ref: "#/components/schemas/MessageBlockedEvent"
 
     NewMessageEvent:
-      required: [ body, createdAt, eventId, eventType, isService, messageId, requestId ]
-      properties:
-        authorId:
-          type: string
-          format: uuid
-          x-go-type: types.UserID
-          x-go-type-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
-        body:
-          type: string
-        createdAt:
-          type: string
-          format: 'date-time'
-        eventId:
-          type: string
-          format: uuid
-          x-go-type: types.EventID
-          x-go-type-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
-        eventType:
-          type: string
-        isService:
-          type: boolean
-        messageId:
-          type: string
-          format: uuid
-          x-go-type: types.MessageID
-          x-go-type-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
-        requestId:
-          type: string
-          format: uuid
-          x-go-type: types.RequestID
-          x-go-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
+      allOf:
+        - $ref: '#/components/schemas/MessageEventCoreFields'
+        - type: object
+          required: [ body, createdAt, isService ]
+          properties:
+            authorId:
+              type: string
+              format: uuid
+              x-go-type: types.UserID
+              x-go-type-import:
+                path: "github.com/gerladeno/chat-service/internal/types"
+            body:
+              type: string
+            createdAt:
+              type: string
+              format: 'date-time'
+            isService:
+              type: boolean
 
-    MessageEventSent:
+    MessageSentEvent:
+      $ref: '#/components/schemas/MessageEventCoreFields'
+
+    MessageBlockedEvent:
+      $ref: '#/components/schemas/MessageEventCoreFields'
+
+    MessageEventCoreFields:
       required: [ eventId, eventType, messageId, requestId ]
       properties:
         eventId:

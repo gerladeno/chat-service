@@ -24,12 +24,15 @@ import (
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
+	afcverdictsprocessor "github.com/gerladeno/chat-service/internal/services/afc-verdicts-processor"
 	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
 	inmemeventstream "github.com/gerladeno/chat-service/internal/services/event-stream/in-mem"
 	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
 	inmemmanagerpool "github.com/gerladeno/chat-service/internal/services/manager-pool/in-mem"
 	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
+	clientmessageblockedjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/client-message-blocked"
+	clientmessagesentjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/client-message-sent"
 	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
 	"github.com/gerladeno/chat-service/internal/store"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
@@ -140,15 +143,6 @@ func run() (errReturned error) {
 
 	eventStream := inmemeventstream.New()
 
-	sendClientMessageJob, err := sendclientmessagejob.New(sendclientmessagejob.NewOptions(
-		msgProducer,
-		msgRepo,
-		eventStream,
-	))
-	if err != nil {
-		return fmt.Errorf("init send client message job: %v", err)
-	}
-
 	outboxService, err := outbox.New(outbox.NewOptions(
 		cfg.Services.Outbox.Workers,
 		cfg.Services.Outbox.IdleTime,
@@ -167,10 +161,66 @@ func run() (errReturned error) {
 		problemsRepo,
 	))
 	if err != nil {
-		return fmt.Errorf("init manager load service")
+		return fmt.Errorf("init manager load service: %v", err)
+	}
+
+	dlqWriter := afcverdictsprocessor.NewKafkaDLQWriter(
+		cfg.Services.AFCVerdictProcessor.Brokers,
+		cfg.Services.AFCVerdictProcessor.VerdictTopicDLQ,
+	)
+
+	afcVerdictProcessor, err := afcverdictsprocessor.New(afcverdictsprocessor.NewOptions(
+		cfg.Services.AFCVerdictProcessor.Brokers,
+		cfg.Services.AFCVerdictProcessor.Consumers,
+		cfg.Services.AFCVerdictProcessor.ConsumerGroup,
+		cfg.Services.AFCVerdictProcessor.VerdictTopic,
+
+		afcverdictsprocessor.NewKafkaReader,
+		dlqWriter,
+
+		db,
+		msgRepo,
+		outboxService,
+
+		afcverdictsprocessor.WithBackoffFactor(cfg.Services.AFCVerdictProcessor.BackoffFactor),
+		afcverdictsprocessor.WithBackoffInitialInterval(cfg.Services.AFCVerdictProcessor.BackoffInitialInterval),
+		afcverdictsprocessor.WithBackoffMaxElapsedTime(cfg.Services.AFCVerdictProcessor.BackoffMaxElapsedTime),
+		afcverdictsprocessor.WithRetries(cfg.Services.AFCVerdictProcessor.Retries),
+		afcverdictsprocessor.WithProcessBatchMaxTimeout(cfg.Services.AFCVerdictProcessor.ProcessBatchMaxTimeout),
+		afcverdictsprocessor.WithProcessBatchSize(cfg.Services.AFCVerdictProcessor.ProcessBatchSize),
+		afcverdictsprocessor.WithVerdictsSignKey(cfg.Services.AFCVerdictProcessor.VerdictSignKey),
+	))
+	if err != nil {
+		return fmt.Errorf("init afcVerdictProcessor: %v", err)
+	}
+
+	// Init jobs
+	sendClientMessageJob, err := sendclientmessagejob.New(sendclientmessagejob.NewOptions(
+		msgProducer,
+		msgRepo,
+		eventStream,
+	))
+	if err != nil {
+		return fmt.Errorf("init send client message job: %v", err)
+	}
+	clientMessageSentJob, err := clientmessagesentjob.New(clientmessagesentjob.NewOptions(
+		msgRepo,
+		eventStream,
+	))
+	if err != nil {
+		return fmt.Errorf("init client message sent job: %v", err)
+	}
+	clientMessageBlockedJob, err := clientmessageblockedjob.New(clientmessageblockedjob.NewOptions(
+		msgRepo,
+		eventStream,
+	))
+	if err != nil {
+		return fmt.Errorf("init client message blocked job: %v", err)
 	}
 
 	outboxService.MustRegisterJob(sendClientMessageJob)
+	outboxService.MustRegisterJob(clientMessageSentJob)
+	outboxService.MustRegisterJob(clientMessageBlockedJob)
 
 	// ws
 	clientWSShutdownCh := make(chan struct{})
@@ -268,6 +318,8 @@ func run() (errReturned error) {
 	eg.Go(func() error { return srvManager.Run(ctx) })
 
 	eg.Go(func() error { return outboxService.Run(ctx) })
+
+	eg.Go(func() error { return afcVerdictProcessor.Run(ctx) })
 	// Ждут своего часа.
 	// ...
 
