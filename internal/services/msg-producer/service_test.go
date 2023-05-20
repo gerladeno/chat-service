@@ -107,7 +107,7 @@ func requireMsgUnmarshal(t *testing.T, data []byte) msgproducer.Message {
 
 	var rcvMsg struct {
 		ID         string `json:"id"`
-		ChatID     string `json:"chatId"` //nolint:tagliatelle
+		ChatID     string `json:"chatId"`
 		Body       string `json:"body"`
 		FromClient bool   `json:"fromClient"`
 	}

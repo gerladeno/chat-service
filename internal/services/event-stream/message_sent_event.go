@@ -26,7 +26,7 @@ func NewMessageSentEvent(
 		event: event{},
 		CoreEventFields: CoreEventFields{
 			EventID:   eventID,
-			EventType: typeMessageEventSent,
+			EventType: TypeMessageEventSent,
 			RequestID: requestID,
 			MessageID: messageID,
 		},

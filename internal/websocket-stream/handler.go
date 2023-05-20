@@ -80,14 +80,17 @@ func (h *HTTPHandler) Serve(eCtx echo.Context) error {
 
 // readLoop listen PONGs.
 func (h *HTTPHandler) readLoop(_ context.Context, ws Websocket) error {
-	var r io.Reader
 	var err error
 	for {
-		_ = ws.SetReadDeadline(time.Now().Add(pingPeriod))
-		if _, r, err = ws.NextReader(); err != nil {
+		_, _, err = ws.NextReader()
+		if err != nil {
 			return fmt.Errorf("get next reader: %v", err)
 		}
-		_, _ = io.ReadAll(r)
+		_ = ws.SetReadDeadline(time.Now().Add(pingPeriod))
+		ws.SetPongHandler(func(string) error {
+			_ = ws.SetReadDeadline(time.Now().Add(pingPeriod))
+			return nil
+		})
 	}
 }
 
@@ -96,7 +99,7 @@ func (h *HTTPHandler) writeLoop(_ context.Context, ws Websocket, events <-chan e
 	var err error
 	var adapted any
 	var event eventstream.Event
-	var w io.Writer
+	var w io.WriteCloser
 	t := time.NewTicker(pingPeriod)
 	defer t.Stop()
 	for {
@@ -112,12 +115,22 @@ func (h *HTTPHandler) writeLoop(_ context.Context, ws Websocket, events <-chan e
 				return fmt.Errorf("adapt event: %v", err)
 			}
 			_ = ws.SetWriteDeadline(time.Now().Add(writeTimeout))
-			if w, err = ws.NextWriter(websocket.TextMessage); err != nil {
-				return fmt.Errorf("get next writer: %v", err)
-			}
-			err = JSONEventWriter{}.Write(adapted, w)
-			if err != nil {
-				return fmt.Errorf("write encoded message to the connection: %v", err)
+			if err = func() error {
+				if w, err = ws.NextWriter(websocket.TextMessage); err != nil {
+					return fmt.Errorf("get next writer: %v", err)
+				}
+				defer func() {
+					if err = w.Close(); err != nil {
+						h.logger.Warn("ws close error", zap.Error(err))
+					}
+				}()
+				err = JSONEventWriter{}.Write(adapted, w)
+				if err != nil {
+					return fmt.Errorf("write encoded message to the connection: %v", err)
+				}
+				return nil
+			}(); err != nil {
+				return err
 			}
 		}
 	}

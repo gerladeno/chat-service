@@ -10,14 +10,24 @@ servers:
 components:
   schemas:
     Event:
+      discriminator:
+        propertyName: eventType
+        mapping:
+          MessageSentEvent: '#/components/schemas/MessageSentEvent'
+          MessageBlockedEvent: '#/components/schemas/MessageBlockedEvent'
+          NewMessageEvent: '#/components/schemas/NewMessageEvent'
       oneOf:
         - $ref: "#/components/schemas/NewMessageEvent"
         - $ref: "#/components/schemas/MessageSentEvent"
         - $ref: "#/components/schemas/MessageBlockedEvent"
+      required: [ eventType ]
+      properties:
+        eventType:
+          type: string
 
     NewMessageEvent:
       allOf:
-        - $ref: '#/components/schemas/MessageEventCoreFields'
+        - $ref: '#/components/schemas/MessageId'
         - type: object
           required: [ body, createdAt, isService ]
           properties:
@@ -35,13 +45,7 @@ components:
             isService:
               type: boolean
 
-    MessageSentEvent:
-      $ref: '#/components/schemas/MessageEventCoreFields'
-
-    MessageBlockedEvent:
-      $ref: '#/components/schemas/MessageEventCoreFields'
-
-    MessageEventCoreFields:
+    MessageId:
       required: [ eventId, eventType, messageId, requestId ]
       properties:
         eventId:
@@ -64,3 +68,9 @@ components:
           x-go-type: types.RequestID
           x-go-import:
             path: "github.com/gerladeno/chat-service/internal/types"
+
+    MessageSentEvent:
+      $ref: '#/components/schemas/MessageId'
+
+    MessageBlockedEvent:
+      $ref: '#/components/schemas/MessageId'

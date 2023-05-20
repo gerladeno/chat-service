@@ -8,6 +8,7 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -21,14 +22,15 @@ import (
 
 // Event defines model for Event.
 type Event struct {
-	union json.RawMessage
+	EventType string `json:"eventType"`
+	union     json.RawMessage
 }
 
 // MessageBlockedEvent defines model for MessageBlockedEvent.
-type MessageBlockedEvent = MessageEventCoreFields
+type MessageBlockedEvent = MessageId
 
-// MessageEventCoreFields defines model for MessageEventCoreFields.
-type MessageEventCoreFields struct {
+// MessageId defines model for MessageId.
+type MessageId struct {
 	EventId   types.EventID   `json:"eventId"`
 	EventType string          `json:"eventType"`
 	MessageId types.MessageID `json:"messageId"`
@@ -36,7 +38,7 @@ type MessageEventCoreFields struct {
 }
 
 // MessageSentEvent defines model for MessageSentEvent.
-type MessageSentEvent = MessageEventCoreFields
+type MessageSentEvent = MessageId
 
 // NewMessageEvent defines model for NewMessageEvent.
 type NewMessageEvent struct {
@@ -59,6 +61,8 @@ func (t Event) AsNewMessageEvent() (NewMessageEvent, error) {
 
 // FromNewMessageEvent overwrites any union data inside the Event as the provided NewMessageEvent
 func (t *Event) FromNewMessageEvent(v NewMessageEvent) error {
+	t.EventType = "NewMessageEvent"
+
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -66,6 +70,8 @@ func (t *Event) FromNewMessageEvent(v NewMessageEvent) error {
 
 // MergeNewMessageEvent performs a merge with any union data inside the Event, using the provided NewMessageEvent
 func (t *Event) MergeNewMessageEvent(v NewMessageEvent) error {
+	t.EventType = "NewMessageEvent"
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -85,6 +91,8 @@ func (t Event) AsMessageSentEvent() (MessageSentEvent, error) {
 
 // FromMessageSentEvent overwrites any union data inside the Event as the provided MessageSentEvent
 func (t *Event) FromMessageSentEvent(v MessageSentEvent) error {
+	t.EventType = "MessageSentEvent"
+
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -92,6 +100,8 @@ func (t *Event) FromMessageSentEvent(v MessageSentEvent) error {
 
 // MergeMessageSentEvent performs a merge with any union data inside the Event, using the provided MessageSentEvent
 func (t *Event) MergeMessageSentEvent(v MessageSentEvent) error {
+	t.EventType = "MessageSentEvent"
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -111,6 +121,8 @@ func (t Event) AsMessageBlockedEvent() (MessageBlockedEvent, error) {
 
 // FromMessageBlockedEvent overwrites any union data inside the Event as the provided MessageBlockedEvent
 func (t *Event) FromMessageBlockedEvent(v MessageBlockedEvent) error {
+	t.EventType = "MessageBlockedEvent"
+
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -118,6 +130,8 @@ func (t *Event) FromMessageBlockedEvent(v MessageBlockedEvent) error {
 
 // MergeMessageBlockedEvent performs a merge with any union data inside the Event, using the provided MessageBlockedEvent
 func (t *Event) MergeMessageBlockedEvent(v MessageBlockedEvent) error {
+	t.EventType = "MessageBlockedEvent"
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -128,28 +142,87 @@ func (t *Event) MergeMessageBlockedEvent(v MessageBlockedEvent) error {
 	return err
 }
 
+func (t Event) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"eventType"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t Event) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "MessageBlockedEvent":
+		return t.AsMessageBlockedEvent()
+	case "MessageSentEvent":
+		return t.AsMessageSentEvent()
+	case "NewMessageEvent":
+		return t.AsNewMessageEvent()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
 func (t Event) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	object["eventType"], err = json.Marshal(t.EventType)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'eventType': %w", err)
+	}
+
+	b, err = json.Marshal(object)
 	return b, err
 }
 
 func (t *Event) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["eventType"]; found {
+		err = json.Unmarshal(raw, &t.EventType)
+		if err != nil {
+			return fmt.Errorf("error reading 'eventType': %w", err)
+		}
+	}
+
 	return err
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xWwW4TMRD9lWjg6GRbcal8owlIPQASgVPVg7OeZE29HmPPJlSr/Xdk7yrdtgGRiN5y",
-	"irX2vHnz3pOdFkqqPTl0HEG2EMsKa5WXH7boOC3I4Zc1yNsW3gZcg4Q3xWNRMVQUn3H3CWNUG+wLO/H3",
-	"88PhJTo+quDaUnmPeqi56wQc2pAt+EAeAxvM02D6fKPTck2hVgwSmsZoEMAPHkFC5GDcBgT8mm5oOnxM",
-	"P3GWMW8W472pqT2FvpHiCiRsDFfNalZSXWwwWKXRUVFWiqcRw9aUWBjHGJyyRUaFrhM9rW+5V/uMSCeg",
-	"7ic7lfYgzKsQD/izwXiMov+h76Ehvw5EFntaJqAGebu3fKzyWNPxEKMcZbPnFPCjQavjOUrnKJ0apcfL",
-	"7Ryic4iODdHzF1W2oKz9h6f4DxdZemCfhlA1XFE41c7vEcOreLki/XAwf2VAxajf8xPCWjFO2dT4gnUn",
-	"wMRl32gEuCKyqNwLg3LfcZdx+d0enFY/sMz/PRKAcWvK2IZt2r1W7n6ybHwSYjKvFE/m1qDjSbYjgoAt",
-	"hmjIgYTtZaJIHp3yBiS8m13OLkBk8SJI11grIAmFIWbXNcYyGM99+QK3aMnXCb0/BQKaYEHCLsqisFQq",
-	"W1FkeXVxdVHsYuL8OwAA//8iT9iT8gkAAA==",
+	"H4sIAAAAAAAC/+xWPW/bMBD9K8a1I20l6BJwa+IOHpoCdTsFHmjpbLHhV8mTXUPQfy9IqbEcC4ZjNJsn",
+	"EeTdu3f3HkTWkFvtrEFDAXgNIS9Ri7T8skFDcVHIkHuppRFkfdzQwjlp1nH5FUMQa7xXNn/GokuBD9ke",
+	"Nesgs6FQ9g9gjobOyd7HMXjEbbd7MvN1WMPAeevQ0+5RaAQOGPd/7BzGM2vw2wr4Uw0fPa7OBz0df0T/",
+	"zISDaTWLF+oSk0Z75rwGSl8I5KM4TcPA4+9KeiyAP/VCFw0b1q0eQp8VcbmyXos44qqSBbBXtRj8Ga/t",
+	"uNuMnzBJmLNp/2wstbO+LSSoBA5rSWW1nORWZ2v0ShRobJaXgsYB/UbmmElD6I1QWUJNXZ1qmoFuO7uU",
+	"djeYdyEe5cDwlon+h7pDTX7viEyHXTKLfPZT7s+030TPR21LV/dc3XOJe3o//6uJriZ6o4mOngE1CKXO",
+	"uMP3/654GR/6TlRUWn+pgj8D+neRb2mL3aDlco+CsPhMB4QLQTgmqfGIdcNAhnlbqAe4tFahMEeapLr9",
+	"Kv30xQu4Xf7CPL5TmgggzcombEkqnt4L8zyaVy4OYvRQCho9KImGRkm3AAw26IO0BjhsbtNbzKERTgKH",
+	"T5PbyQ2wNLwA3FRKMYiDQh+S0AXGR6qjNn2KG1TW6YjeRgGDyivgsA08y5TNhSptIH53c3eTbUPk/DcA",
+	"AP//QB2YKAwLAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -13,7 +13,7 @@ import (
 
 type Message struct {
 	ID         types.MessageID `json:"id"`
-	ChatID     types.ChatID    `json:"chatId"` //nolint:tagliatelle
+	ChatID     types.ChatID    `json:"chatId"`
 	Body       string          `json:"body"`
 	FromClient bool            `json:"fromClient"`
 }

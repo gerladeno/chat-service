@@ -262,8 +262,8 @@ func (s *ServiceSuite) encode(v verdict) string {
 }
 
 type verdict struct {
-	ChatID    string `json:"chatId"`    //nolint:tagliatelle
-	MessageID string `json:"messageId"` //nolint:tagliatelle
+	ChatID    string `json:"chatId"`
+	MessageID string `json:"messageId"`
 	Status    string `json:"status"`
 }
 

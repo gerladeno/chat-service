@@ -57,7 +57,7 @@ func NewNewMessageEvent(
 		event: event{},
 		CoreEventFields: CoreEventFields{
 			EventID:   eventID,
-			EventType: typeNewMessageEvent,
+			EventType: TypeNewMessageEvent,
 			RequestID: requestID,
 			MessageID: messageID,
 		},

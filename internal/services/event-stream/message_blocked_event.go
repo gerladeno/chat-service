@@ -26,7 +26,7 @@ func NewMessageBlockedEvent(
 		event: event{},
 		CoreEventFields: CoreEventFields{
 			EventID:   eventID,
-			EventType: typeMessageEventBlocked,
+			EventType: TypeMessageEventBlocked,
 			RequestID: requestID,
 			MessageID: messageID,
 		},

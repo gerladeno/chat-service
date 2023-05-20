@@ -229,7 +229,7 @@ tasks:
       E2E_KEYCLOAK_CLIENT_ID: e2e-testing
       E2E_KEYCLOAK_CLIENT_SECRET: kOAz2cUJ9Kur3HNPOd5R3vwLhZL9TskT
       E2E_KEYCLOAK_CLIENT_DEBUG: false
-      E2E_KEYCLOAK_CLIENTS: e2e_client_0,e2e_client_1
+      E2E_KEYCLOAK_CLIENTS: e2e_client_0,e2e_client_1,e2e_client_2,e2e_client_3
     cmds:
       - echo "- End-to-end tests..."
       # NOTE: It's important to run tests serial (without `-p` flag) – for correct `clientsPool` sharing.

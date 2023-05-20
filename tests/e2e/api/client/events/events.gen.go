@@ -5,6 +5,8 @@ package apiclientevents
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
@@ -13,14 +15,15 @@ import (
 
 // Event defines model for Event.
 type Event struct {
-	union json.RawMessage
+	EventType string `json:"eventType"`
+	union     json.RawMessage
 }
 
 // MessageBlockedEvent defines model for MessageBlockedEvent.
-type MessageBlockedEvent = MessageEventCoreFields
+type MessageBlockedEvent = MessageId
 
-// MessageEventCoreFields defines model for MessageEventCoreFields.
-type MessageEventCoreFields struct {
+// MessageId defines model for MessageId.
+type MessageId struct {
 	EventId   types.EventID   `json:"eventId"`
 	EventType string          `json:"eventType"`
 	MessageId types.MessageID `json:"messageId"`
@@ -28,7 +31,7 @@ type MessageEventCoreFields struct {
 }
 
 // MessageSentEvent defines model for MessageSentEvent.
-type MessageSentEvent = MessageEventCoreFields
+type MessageSentEvent = MessageId
 
 // NewMessageEvent defines model for NewMessageEvent.
 type NewMessageEvent struct {
@@ -51,6 +54,8 @@ func (t Event) AsNewMessageEvent() (NewMessageEvent, error) {
 
 // FromNewMessageEvent overwrites any union data inside the Event as the provided NewMessageEvent
 func (t *Event) FromNewMessageEvent(v NewMessageEvent) error {
+	t.EventType = "NewMessageEvent"
+
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -58,6 +63,8 @@ func (t *Event) FromNewMessageEvent(v NewMessageEvent) error {
 
 // MergeNewMessageEvent performs a merge with any union data inside the Event, using the provided NewMessageEvent
 func (t *Event) MergeNewMessageEvent(v NewMessageEvent) error {
+	t.EventType = "NewMessageEvent"
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -77,6 +84,8 @@ func (t Event) AsMessageSentEvent() (MessageSentEvent, error) {
 
 // FromMessageSentEvent overwrites any union data inside the Event as the provided MessageSentEvent
 func (t *Event) FromMessageSentEvent(v MessageSentEvent) error {
+	t.EventType = "MessageSentEvent"
+
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -84,6 +93,8 @@ func (t *Event) FromMessageSentEvent(v MessageSentEvent) error {
 
 // MergeMessageSentEvent performs a merge with any union data inside the Event, using the provided MessageSentEvent
 func (t *Event) MergeMessageSentEvent(v MessageSentEvent) error {
+	t.EventType = "MessageSentEvent"
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -103,6 +114,8 @@ func (t Event) AsMessageBlockedEvent() (MessageBlockedEvent, error) {
 
 // FromMessageBlockedEvent overwrites any union data inside the Event as the provided MessageBlockedEvent
 func (t *Event) FromMessageBlockedEvent(v MessageBlockedEvent) error {
+	t.EventType = "MessageBlockedEvent"
+
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -110,6 +123,8 @@ func (t *Event) FromMessageBlockedEvent(v MessageBlockedEvent) error {
 
 // MergeMessageBlockedEvent performs a merge with any union data inside the Event, using the provided MessageBlockedEvent
 func (t *Event) MergeMessageBlockedEvent(v MessageBlockedEvent) error {
+	t.EventType = "MessageBlockedEvent"
+
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -120,12 +135,70 @@ func (t *Event) MergeMessageBlockedEvent(v MessageBlockedEvent) error {
 	return err
 }
 
+func (t Event) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"eventType"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t Event) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "MessageBlockedEvent":
+		return t.AsMessageBlockedEvent()
+	case "MessageSentEvent":
+		return t.AsMessageSentEvent()
+	case "NewMessageEvent":
+		return t.AsNewMessageEvent()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
 func (t Event) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	object["eventType"], err = json.Marshal(t.EventType)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'eventType': %w", err)
+	}
+
+	b, err = json.Marshal(object)
 	return b, err
 }
 
 func (t *Event) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["eventType"]; found {
+		err = json.Unmarshal(raw, &t.EventType)
+		if err != nil {
+			return fmt.Errorf("error reading 'eventType': %w", err)
+		}
+	}
+
 	return err
 }

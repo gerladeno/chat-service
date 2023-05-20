@@ -35,8 +35,9 @@ type upgraderImpl struct {
 
 func NewUpgrader(allowOrigins []string, secWsProtocol string) Upgrader {
 	upgrader := &gorillaws.Upgrader{
-		WriteBufferSize: MessageSizeLimit,
-		Subprotocols:    []string{secWsProtocol},
+		WriteBufferSize:  MessageSizeLimit,
+		HandshakeTimeout: writeTimeout,
+		Subprotocols:     []string{secWsProtocol},
 		CheckOrigin: func(r *http.Request) bool {
 			return utils.SlicesCollide[string](r.Header["Origin"], allowOrigins...)
 		},

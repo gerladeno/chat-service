@@ -106,8 +106,8 @@ func New(opts Options) (*Service, error) {
 }
 
 type verdict struct {
-	ChatID    string `json:"chatId"`    //nolint:tagliatelle
-	MessageID string `json:"messageId"` //nolint:tagliatelle
+	ChatID    string `json:"chatId"`
+	MessageID string `json:"messageId"`
 	Status    string `json:"status"`
 }
 
