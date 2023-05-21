@@ -4,15 +4,17 @@ import (
 	"fmt"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
 	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
 	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
 	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
-	serverclient "github.com/gerladeno/chat-service/internal/server-client"
-	"github.com/gerladeno/chat-service/internal/server-client/errhandler"
+	"github.com/gerladeno/chat-service/internal/server"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
+	"github.com/gerladeno/chat-service/internal/server/errhandler"
+	"github.com/gerladeno/chat-service/internal/services/outbox"
 	"github.com/gerladeno/chat-service/internal/store"
 	gethistory "github.com/gerladeno/chat-service/internal/usecases/client/get-history"
 	sendmessage "github.com/gerladeno/chat-service/internal/usecases/client/send-message"
@@ -21,30 +23,34 @@ import (
 const nameServerClient = "server-client"
 
 func initServerClient(
+	isProd bool,
 	addr string,
 	allowOrigins []string,
 	v1Swagger *openapi3.T,
+
 	client *keycloakclient.Client,
 	resource string,
 	role string,
-	isProd bool,
+
+	db *store.Database,
 	msgRepo *messagesrepo.Repo,
 	chatRepo *chatsrepo.Repo,
 	problemRepo *problemsrepo.Repo,
-	db *store.Database,
-) (*serverclient.Server, error) {
+
+	outboxService *outbox.Service,
+) (*server.Server, error) {
 	lg := zap.L().Named(nameServerClient)
 
 	getHistoryUseCase, err := gethistory.New(gethistory.NewOptions(msgRepo))
 	if err != nil {
 		return nil, fmt.Errorf("create getHistoryUseCase: %v", err)
 	}
-	sendMessageUseCae, err := sendmessage.New(sendmessage.NewOptions(chatRepo, msgRepo, problemRepo, db))
+	sendMessageUseCase, err := sendmessage.New(sendmessage.NewOptions(chatRepo, msgRepo, outboxService, problemRepo, db))
 	if err != nil {
-		return nil, fmt.Errorf("create sendMessageUseCae: %v", err)
+		return nil, fmt.Errorf("create sendMessageUseCase: %v", err)
 	}
 
-	v1Handlers, err := clientv1.NewHandlers(clientv1.NewOptions(lg, getHistoryUseCase, sendMessageUseCae))
+	v1Handlers, err := clientv1.NewHandlers(clientv1.NewOptions(lg, getHistoryUseCase, sendMessageUseCase))
 	if err != nil {
 		return nil, fmt.Errorf("create v1 handlers: %v", err)
 	}
@@ -54,12 +60,14 @@ func initServerClient(
 		return nil, fmt.Errorf("create error handler: %v", err)
 	}
 
-	srv, err := serverclient.New(serverclient.NewOptions(
+	srv, err := server.New(server.NewOptions(
 		lg,
 		addr,
 		allowOrigins,
 		v1Swagger,
-		v1Handlers,
+		func(g *echo.Group) {
+			clientv1.RegisterHandlers(g, v1Handlers)
+		},
 		client,
 		resource,
 		role,

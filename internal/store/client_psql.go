@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	"fmt"
+	"net/url"
 )
 
 //go:generate options-gen -out-filename=client_psql_options.gen.go -from-struct=PSQLOptions
@@ -41,13 +42,18 @@ type PgxOptions struct {
 	database string `option:"mandatory" validate:"required"`
 }
 
-const pgxDSNTmpl = `postgresql://%s:%s@%s/%s?sslmode=disable`
-
 func NewPgxDB(opts PgxOptions) (*sql.DB, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, fmt.Errorf("validate options: %v", err)
 	}
-	db, err := sql.Open("pgx", fmt.Sprintf(pgxDSNTmpl, opts.username, opts.password, opts.address, opts.database))
+	dsn := &url.URL{
+		Scheme:   "postgresql",
+		User:     url.UserPassword(opts.username, opts.password),
+		Host:     opts.address,
+		Path:     opts.database,
+		RawQuery: "sslmode=disable",
+	}
+	db, err := sql.Open("pgx", dsn.String())
 	if err != nil {
 		return nil, fmt.Errorf("connect to pg: %v", err)
 	}

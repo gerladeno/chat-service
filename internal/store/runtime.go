@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gerladeno/chat-service/internal/store/chat"
+	"github.com/gerladeno/chat-service/internal/store/failedjob"
+	"github.com/gerladeno/chat-service/internal/store/job"
 	"github.com/gerladeno/chat-service/internal/store/message"
 	"github.com/gerladeno/chat-service/internal/store/problem"
 	"github.com/gerladeno/chat-service/internal/store/schema"
@@ -26,6 +28,36 @@ func init() {
 	chatDescID := chatFields[0].Descriptor()
 	// chat.DefaultID holds the default value on creation for the id field.
 	chat.DefaultID = chatDescID.Default.(func() types.ChatID)
+	failedjobFields := schema.FailedJob{}.Fields()
+	_ = failedjobFields
+	// failedjobDescCreatedAt is the schema descriptor for created_at field.
+	failedjobDescCreatedAt := failedjobFields[4].Descriptor()
+	// failedjob.DefaultCreatedAt holds the default value on creation for the created_at field.
+	failedjob.DefaultCreatedAt = failedjobDescCreatedAt.Default.(func() time.Time)
+	// failedjobDescID is the schema descriptor for id field.
+	failedjobDescID := failedjobFields[0].Descriptor()
+	// failedjob.DefaultID holds the default value on creation for the id field.
+	failedjob.DefaultID = failedjobDescID.Default.(func() types.FailedJobID)
+	jobFields := schema.Job{}.Fields()
+	_ = jobFields
+	// jobDescAttempts is the schema descriptor for attempts field.
+	jobDescAttempts := jobFields[3].Descriptor()
+	// job.DefaultAttempts holds the default value on creation for the attempts field.
+	job.DefaultAttempts = jobDescAttempts.Default.(int)
+	// job.AttemptsValidator is a validator for the "attempts" field. It is called by the builders before save.
+	job.AttemptsValidator = jobDescAttempts.Validators[0].(func(int) error)
+	// jobDescReservedUntil is the schema descriptor for reserved_until field.
+	jobDescReservedUntil := jobFields[5].Descriptor()
+	// job.DefaultReservedUntil holds the default value on creation for the reserved_until field.
+	job.DefaultReservedUntil = jobDescReservedUntil.Default.(time.Time)
+	// jobDescCreatedAt is the schema descriptor for created_at field.
+	jobDescCreatedAt := jobFields[6].Descriptor()
+	// job.DefaultCreatedAt holds the default value on creation for the created_at field.
+	job.DefaultCreatedAt = jobDescCreatedAt.Default.(func() time.Time)
+	// jobDescID is the schema descriptor for id field.
+	jobDescID := jobFields[0].Descriptor()
+	// job.DefaultID holds the default value on creation for the id field.
+	job.DefaultID = jobDescID.Default.(func() types.JobID)
 	messageFields := schema.Message{}.Fields()
 	_ = messageFields
 	// messageDescIsVisibleForClient is the schema descriptor for is_visible_for_client field.

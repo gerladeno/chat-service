@@ -1,12 +1,15 @@
 package config
 
+import "time"
+
 type Config struct {
-	Global  GlobalConfig  `toml:"global"`
-	Log     LogConfig     `toml:"log"`
-	Servers ServersConfig `toml:"servers"`
-	Sentry  SentryConfig  `toml:"sentry"`
-	Clients ClientConfig  `toml:"clients"`
-	DB      DBConfig      `toml:"db"`
+	Global   GlobalConfig  `toml:"global"`
+	Log      LogConfig     `toml:"log"`
+	Servers  ServersConfig `toml:"servers"`
+	Sentry   SentryConfig  `toml:"sentry"`
+	Clients  ClientConfig  `toml:"clients"`
+	DB       DBConfig      `toml:"db"`
+	Services ServiceConfig `toml:"services"`
 }
 
 type GlobalConfig struct {
@@ -22,8 +25,9 @@ type LogConfig struct {
 }
 
 type ServersConfig struct {
-	Debug  DebugServerConfig  `toml:"debug"`
-	Client ClientServerConfig `toml:"client"`
+	Debug   DebugServerConfig `toml:"debug"`
+	Client  ServerConfig      `toml:"client"`
+	Manager ServerConfig      `toml:"manager"`
 }
 
 type DebugServerConfig struct {
@@ -34,7 +38,7 @@ type SentryConfig struct {
 	DSN string `toml:"dsn"`
 }
 
-type ClientServerConfig struct {
+type ServerConfig struct {
 	Addr           string         `toml:"addr" validate:"required,hostname_port"`
 	AllowOrigins   []string       `toml:"allow_origins" validate:"required"`
 	RequiredAccess RequiredAccess `toml:"required_access" validate:"required"`
@@ -67,4 +71,27 @@ type PGConfig struct {
 	Addr      string `toml:"addr" validate:"required,hostname_port"`
 	Database  string `toml:"database" validate:"required"`
 	DebugMode bool   `toml:"debug_mode"`
+}
+
+type ServiceConfig struct {
+	MsgProducer MsgProducerConfig `toml:"msg_producer"`
+	Outbox      OutboxConfig      `toml:"outbox"`
+	ManagerLoad ManagerLoadConfig `toml:"manager_load"`
+}
+
+type MsgProducerConfig struct {
+	Brokers    []string `toml:"brokers" validate:"required,dive,hostname_port"`
+	Topic      string   `toml:"topic" validate:"required"`
+	BatchSize  int      `toml:"batch_size"`
+	EncryptKey string   `toml:"encrypt_key"`
+}
+
+type OutboxConfig struct {
+	Workers    int           `toml:"workers" validate:"required"`
+	IdleTime   time.Duration `toml:"idle_time" validate:"required"`
+	ReserveFor time.Duration `toml:"reserve_for"`
+}
+
+type ManagerLoadConfig struct {
+	MaxProblemsAtSameTime int `toml:"max_problems_at_same_time" validate:"required,min=1,max=30"`
 }
