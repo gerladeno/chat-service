@@ -1,5 +1,10 @@
 package utils
 
+import (
+	"context"
+	"time"
+)
+
 func SlicesCollide[T comparable](s1 []T, s2 ...T) bool {
 	m := make(map[T]struct{})
 	for _, s := range s1 {
@@ -12,4 +17,11 @@ func SlicesCollide[T comparable](s1 []T, s2 ...T) bool {
 		}
 	}
 	return false
+}
+
+func Sleep(ctx context.Context, d time.Duration) {
+	select {
+	case <-ctx.Done():
+	case <-time.After(d):
+	}
 }
