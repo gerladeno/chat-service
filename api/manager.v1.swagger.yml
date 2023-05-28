@@ -34,6 +34,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/FreeHandsResponse"
 
+  /getChats:
+    post:
+      description: Get the list of chats with open problems.
+      parameters:
+        - $ref: "#/components/parameters/XRequestIDHeader"
+      responses:
+        '200':
+          description: Chats list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetChatsResponse"
+
 security:
   - bearerAuth: [ ]
 
@@ -57,21 +70,7 @@ components:
       required: true
 
   schemas:
-    GetFreeHandsBtnAvailabilityResponse:
-      required: [ "data" ]
-      properties:
-        data:
-          additionalProperties: true
-        error:
-          $ref: "#/components/schemas/Error"
-
-    FreeHandsResponse:
-      properties:
-        data:
-          type: object
-        error:
-          $ref: "#/components/schemas/Error"
-
+    # Common.
     Error:
       required: [ message, code ]
       properties:
@@ -90,3 +89,56 @@ components:
       x-enum-varnames:
         - ErrorCodeManagerOverloaded
       minimum: 400
+
+    ChatId:
+      required: [ chatId ]
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          x-go-type: types.ChatID
+          x-go-type-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+
+
+    GetFreeHandsBtnAvailabilityResponse:
+      required: [ "data" ]
+      properties:
+        data:
+          additionalProperties: true
+        error:
+          $ref: "#/components/schemas/Error"
+
+    FreeHandsResponse:
+      properties:
+        data:
+          type: object
+        error:
+          $ref: "#/components/schemas/Error"
+
+    GetChatsResponse:
+      properties:
+        data:
+          $ref: "#/components/schemas/ChatList"
+        error:
+          $ref: "#/components/schemas/Error"
+
+    ChatList:
+      required: [ chats ]
+      properties:
+        chats:
+          type: array
+          items: { $ref: "#/components/schemas/Chat" }
+
+    Chat:
+      allOf:
+        - $ref: "#/components/schemas/ChatId"
+        - type: object
+          required: [ clientId ]
+          properties:
+            clientId:
+              type: string
+              format: uuid
+              x-go-type: types.UserID
+              x-go-type-import:
+                path: "github.com/gerladeno/chat-service/internal/types"

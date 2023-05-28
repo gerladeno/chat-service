@@ -1,12 +1,25 @@
 package eventstream
 
-import "github.com/gerladeno/chat-service/internal/types"
+import (
+	"go.uber.org/multierr"
+
+	"github.com/gerladeno/chat-service/internal/types"
+)
 
 // MessageBlockedEvent indicates that the message was checked by AFC
 // and was sent to the manager. Two gray ticks.
 type MessageBlockedEvent struct {
 	event
 	CoreEventFields
+	MessageID types.MessageID
+}
+
+func (e MessageBlockedEvent) Validate() error {
+	er := e.CoreEventFields.Validate()
+	if err := e.MessageID.Validate(); err != nil {
+		er = multierr.Append(er, err)
+	}
+	return er
 }
 
 func (e MessageBlockedEvent) Matches(x any) bool {
@@ -28,7 +41,7 @@ func NewMessageBlockedEvent(
 			EventID:   eventID,
 			EventType: TypeMessageEventBlocked,
 			RequestID: requestID,
-			MessageID: messageID,
 		},
+		MessageID: messageID,
 	}
 }

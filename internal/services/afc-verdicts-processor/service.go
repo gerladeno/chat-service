@@ -112,18 +112,21 @@ type verdict struct {
 }
 
 func (s *Service) Run(ctx context.Context) error {
+	log := zap.L().Named(serviceName)
+	log.Info("starting afc verdicts processor")
 	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
 		if err := s.dlqWriter.Close(); err != nil {
-			zap.L().Warn("close dlqWriter", zap.Error(err))
+			log.Warn("close dlqWriter", zap.Error(err))
 		}
 	}()
 	for i := 0; i < s.consumers; i++ {
 		eg.Go(func() error {
 			reader := s.readerFactory(s.brokers, s.consumerGroup, s.verdictsTopic)
 			defer func() {
+				log.Info("closing reader")
 				if err := reader.Close(); err != nil {
-					zap.L().Warn("close reader", zap.Error(err))
+					log.Warn("close reader", zap.Error(err))
 				}
 			}()
 			return s.processMessages(ctx, reader)
@@ -142,11 +145,14 @@ func (s *Service) processMessages(ctx context.Context, reader KafkaReader) error
 		for {
 			msg, err = reader.FetchMessage(ctx)
 			if err != nil {
-				zap.L().Warn("fetching message", zap.Error(err))
+				zap.L().Named(serviceName).Warn("fetching message", zap.Error(err))
 				errCh <- struct{}{}
 				break
 			}
-			msgCh <- msg
+			select {
+			case msgCh <- msg:
+			case <-ctx.Done():
+			}
 		}
 	}()
 	for {

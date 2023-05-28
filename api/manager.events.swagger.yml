@@ -1,0 +1,92 @@
+openapi: 3.1.0
+info:
+  title: Bank Support Chat Manager Events
+  version: v1
+
+servers:
+  - url: ws://localhost:8081/ws
+    description: Development server
+
+components:
+  schemas:
+    MessageId:
+      required: [ messageId ]
+      properties:
+        messageId:
+          type: string
+          format: uuid
+          x-go-type: types.MessageID
+          x-go-type-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+
+    Message:
+      allOf:
+        - $ref: "#/components/schemas/MessageId"
+        - type: object
+          required: [ body, createdAt, isService ]
+          properties:
+            authorId:
+              type: string
+              format: uuid
+              x-go-type: types.UserID
+              x-go-type-import:
+                path: "github.com/gerladeno/chat-service/internal/types"
+            body:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            isService:
+              type: boolean
+
+    NewMessageEvent:
+      $ref: "#/components/schemas/Message"
+
+    MessageSentEvent:
+      $ref: "#/components/schemas/MessageId"
+
+    NewChatEvent:
+      required: [ chatId, clientId, canTakeMoreProblems ]
+      properties:
+        chatId:
+          type: string
+          format: uuid
+          x-go-type: types.ChatID
+          x-go-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+        clientId:
+          type: string
+          format: uuid
+          x-go-type: types.UserID
+          x-go-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+        canTakeMoreProblems:
+          type: boolean
+
+    Event:
+      required: [ eventType, eventId, requestId ]
+      properties:
+        eventType:
+          type: string
+        eventId:
+          type: string
+          format: uuid
+          x-go-type: types.EventID
+          x-go-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+        requestId:
+          type: string
+          format: uuid
+          x-go-type: types.RequestID
+          x-go-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+      oneOf:
+        - $ref: "#/components/schemas/NewMessageEvent"
+        - $ref: "#/components/schemas/MessageSentEvent"
+        - $ref: "#/components/schemas/NewChatEvent"
+      discriminator:
+        propertyName: eventType
+        mapping:
+          MessageSentEvent: '#/components/schemas/MessageSentEvent'
+          NewMessageEvent: '#/components/schemas/NewMessageEvent'
+          NewChatEvent: "#/components/schemas/NewChatEvent"

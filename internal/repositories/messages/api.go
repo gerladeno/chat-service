@@ -59,3 +59,26 @@ func (r *Repo) CreateClientVisible(
 	result := adaptStoreMessage(msg)
 	return &result, nil
 }
+
+func (r *Repo) CreateService(
+	ctx context.Context,
+	reqID types.RequestID,
+	problemID types.ProblemID,
+	chatID types.ChatID,
+	msgBody string,
+) (*Message, error) {
+	msg, err := r.db.Message(ctx).Create().
+		SetInitialRequestID(reqID).
+		SetProblemID(problemID).
+		SetChatID(chatID).
+		SetBody(msgBody).
+		SetIsVisibleForClient(true).
+		SetIsService(true).
+		SetIsVisibleForManager(true).
+		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create service message: %v", err)
+	}
+	result := adaptStoreMessage(msg)
+	return &result, nil
+}

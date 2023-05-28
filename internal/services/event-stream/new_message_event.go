@@ -1,6 +1,7 @@
 package eventstream
 
 import (
+	"errors"
 	"time"
 
 	"go.uber.org/multierr"
@@ -12,8 +13,9 @@ import (
 type NewMessageEvent struct {
 	event
 	CoreEventFields
+	MessageID   types.MessageID
 	ChatID      types.ChatID
-	UserID      types.UserID
+	AuthorID    types.UserID
 	CreatedAt   time.Time
 	MessageBody string
 	IsService   bool
@@ -24,7 +26,10 @@ func (e NewMessageEvent) Validate() error {
 	if err := e.ChatID.Validate(); err != nil {
 		er = multierr.Append(er, err)
 	}
-	if err := e.UserID.Validate(); err != nil {
+	if err := e.AuthorID.Validate(); err != nil && !errors.Is(err, types.ErrZeroID) {
+		er = multierr.Append(er, err)
+	}
+	if err := e.MessageID.Validate(); err != nil {
 		er = multierr.Append(er, err)
 	}
 	return er
@@ -37,10 +42,11 @@ func (e NewMessageEvent) Matches(x any) bool {
 	}
 	return e.CoreEventFields.Matches(val.CoreEventFields) &&
 		e.ChatID == val.ChatID &&
-		e.UserID == val.UserID &&
+		e.AuthorID == val.AuthorID &&
 		e.CreatedAt == val.CreatedAt &&
 		e.MessageBody == val.MessageBody &&
-		e.IsService == val.IsService
+		e.IsService == val.IsService &&
+		e.MessageID == val.MessageID
 }
 
 func NewNewMessageEvent(
@@ -59,12 +65,12 @@ func NewNewMessageEvent(
 			EventID:   eventID,
 			EventType: TypeNewMessageEvent,
 			RequestID: requestID,
-			MessageID: messageID,
 		},
 		ChatID:      chatID,
-		UserID:      userID,
+		AuthorID:    userID,
 		CreatedAt:   createdAt,
 		MessageBody: body,
 		IsService:   isService,
+		MessageID:   messageID,
 	}
 }

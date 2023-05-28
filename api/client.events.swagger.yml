@@ -9,25 +9,47 @@ servers:
 
 components:
   schemas:
+    MessageId:
+      required: [ messageId ]
+      properties:
+        messageId:
+          type: string
+          format: uuid
+          x-go-type: types.MessageID
+          x-go-type-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+
     Event:
+      required: [ eventType, eventId, requestId ]
+      properties:
+        eventType:
+          type: string
+        eventId:
+          type: string
+          format: uuid
+          x-go-type: types.EventID
+          x-go-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+        requestId:
+          type: string
+          format: uuid
+          x-go-type: types.RequestID
+          x-go-import:
+            path: "github.com/gerladeno/chat-service/internal/types"
+      oneOf:
+        - $ref: "#/components/schemas/NewMessageEvent"
+        - $ref: "#/components/schemas/MessageSentEvent"
+        - $ref: "#/components/schemas/MessageBlockedEvent"
       discriminator:
         propertyName: eventType
         mapping:
           MessageSentEvent: '#/components/schemas/MessageSentEvent'
           MessageBlockedEvent: '#/components/schemas/MessageBlockedEvent'
           NewMessageEvent: '#/components/schemas/NewMessageEvent'
-      oneOf:
-        - $ref: "#/components/schemas/NewMessageEvent"
-        - $ref: "#/components/schemas/MessageSentEvent"
-        - $ref: "#/components/schemas/MessageBlockedEvent"
-      required: [ eventType ]
-      properties:
-        eventType:
-          type: string
 
-    NewMessageEvent:
+    Message:
       allOf:
-        - $ref: '#/components/schemas/MessageId'
+        - $ref: "#/components/schemas/MessageId"
         - type: object
           required: [ body, createdAt, isService ]
           properties:
@@ -41,36 +63,15 @@ components:
               type: string
             createdAt:
               type: string
-              format: 'date-time'
+              format: date-time
             isService:
               type: boolean
 
-    MessageId:
-      required: [ eventId, eventType, messageId, requestId ]
-      properties:
-        eventId:
-          type: string
-          format: uuid
-          x-go-type: types.EventID
-          x-go-type-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
-        eventType:
-          type: string
-        messageId:
-          type: string
-          format: uuid
-          x-go-type: types.MessageID
-          x-go-type-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
-        requestId:
-          type: string
-          format: uuid
-          x-go-type: types.RequestID
-          x-go-import:
-            path: "github.com/gerladeno/chat-service/internal/types"
+    NewMessageEvent:
+      $ref: "#/components/schemas/Message"
 
     MessageSentEvent:
-      $ref: '#/components/schemas/MessageId'
+      $ref: "#/components/schemas/MessageId"
 
     MessageBlockedEvent:
-      $ref: '#/components/schemas/MessageId'
+      $ref: "#/components/schemas/MessageId"

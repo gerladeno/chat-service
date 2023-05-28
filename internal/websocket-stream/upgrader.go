@@ -10,8 +10,6 @@ import (
 	"github.com/gerladeno/chat-service/pkg/utils"
 )
 
-const MessageSizeLimit = 14 * 1024 // bytes
-
 type Websocket interface {
 	SetWriteDeadline(t time.Time) error
 	NextWriter(messageType int) (io.WriteCloser, error)
@@ -35,8 +33,9 @@ type upgraderImpl struct {
 
 func NewUpgrader(allowOrigins []string, secWsProtocol string) Upgrader {
 	upgrader := &gorillaws.Upgrader{
-		WriteBufferSize:  MessageSizeLimit,
-		HandshakeTimeout: writeTimeout,
+		HandshakeTimeout: 1 * time.Second,
+		ReadBufferSize:   125,
+		WriteBufferSize:  1,
 		Subprotocols:     []string{secWsProtocol},
 		CheckOrigin: func(r *http.Request) bool {
 			return utils.SlicesCollide[string](r.Header["Origin"], allowOrigins...)

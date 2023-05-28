@@ -81,3 +81,6 @@ verdict_topic_dlq = "afc.msg-verdicts.dlq"
 process_batch_size = 4
 process_batch_max_timeout = "100ms"
 retries = 3
+
+[services.manager_scheduler]
+period = "1s"

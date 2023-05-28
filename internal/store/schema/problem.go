@@ -35,6 +35,6 @@ func (Problem) Edges() []ent.Edge {
 
 func (Problem) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("chat_id").Annotations(entsql.IndexWhere("resolved_at IS NULL")).Unique(),
+		index.Fields("manager_id").Annotations(entsql.IndexWhere("resolved_at IS NULL")).Unique(),
 	}
 }

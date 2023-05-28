@@ -50,12 +50,19 @@ var (
 		Name:       "jobs",
 		Columns:    JobsColumns,
 		PrimaryKey: []*schema.Column{JobsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "job_available_at_reserved_until",
+				Unique:  false,
+				Columns: []*schema.Column{JobsColumns[4], JobsColumns[5]},
+			},
+		},
 	}
 	// MessagesColumns holds the columns for the "messages" table.
 	MessagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID, Unique: true},
 		{Name: "author_id", Type: field.TypeUUID, Nullable: true},
-		{Name: "initial_request_id", Type: field.TypeUUID, Unique: true},
+		{Name: "initial_request_id", Type: field.TypeUUID},
 		{Name: "is_visible_for_client", Type: field.TypeBool, Default: false},
 		{Name: "is_visible_for_manager", Type: field.TypeBool, Default: false},
 		{Name: "body", Type: field.TypeString, Size: 3000},
@@ -96,6 +103,14 @@ var (
 				Unique:  false,
 				Columns: []*schema.Column{MessagesColumns[9], MessagesColumns[3]},
 			},
+			{
+				Name:    "message_initial_request_id",
+				Unique:  true,
+				Columns: []*schema.Column{MessagesColumns[2]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "NOT is_service",
+				},
+			},
 		},
 	}
 	// ProblemsColumns holds the columns for the "problems" table.
@@ -121,9 +136,9 @@ var (
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "problem_chat_id",
+				Name:    "problem_manager_id",
 				Unique:  true,
-				Columns: []*schema.Column{ProblemsColumns[4]},
+				Columns: []*schema.Column{ProblemsColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "resolved_at IS NULL",
 				},

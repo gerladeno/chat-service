@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -21,7 +22,7 @@ func (Message) Fields() []ent.Field {
 		field.UUID("id", types.MessageID{}).Default(types.NewMessageID).Unique(),
 		field.UUID("author_id", types.UserID{}).Optional(),
 		field.UUID("chat_id", types.ChatID{}),
-		field.UUID("initial_request_id", types.RequestID{}).Unique(),
+		field.UUID("initial_request_id", types.RequestID{}).Immutable(),
 		field.UUID("problem_id", types.ProblemID{}),
 		field.Bool("is_visible_for_client").Default(false),
 		field.Bool("is_visible_for_manager").Default(false),
@@ -45,5 +46,6 @@ func (Message) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("chat_id"),
 		index.Fields("created_at", "is_visible_for_client"),
+		index.Fields("initial_request_id").Annotations(entsql.IndexWhere("NOT is_service")).Unique(),
 	}
 }

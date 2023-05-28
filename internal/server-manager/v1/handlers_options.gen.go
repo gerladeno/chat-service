@@ -15,6 +15,7 @@ func NewOptions(
 	logger *zap.Logger,
 	canReceiveProblemsUseCase canReceiveProblemsUseCase,
 	freeHandsUseCase freeHandsUseCase,
+	getChatsUseCase getChatsUseCase,
 	options ...OptOptionsSetter,
 ) Options {
 	o := Options{}
@@ -24,6 +25,7 @@ func NewOptions(
 	o.logger = logger
 	o.canReceiveProblemsUseCase = canReceiveProblemsUseCase
 	o.freeHandsUseCase = freeHandsUseCase
+	o.getChatsUseCase = getChatsUseCase
 
 	for _, opt := range options {
 		opt(&o)
@@ -36,6 +38,7 @@ func (o *Options) Validate() error {
 	errs.Add(errors461e464ebed9.NewValidationError("logger", _validate_Options_logger(o)))
 	errs.Add(errors461e464ebed9.NewValidationError("canReceiveProblemsUseCase", _validate_Options_canReceiveProblemsUseCase(o)))
 	errs.Add(errors461e464ebed9.NewValidationError("freeHandsUseCase", _validate_Options_freeHandsUseCase(o)))
+	errs.Add(errors461e464ebed9.NewValidationError("getChatsUseCase", _validate_Options_getChatsUseCase(o)))
 	return errs.AsError()
 }
 
@@ -56,6 +59,13 @@ func _validate_Options_canReceiveProblemsUseCase(o *Options) error {
 func _validate_Options_freeHandsUseCase(o *Options) error {
 	if err := validator461e464ebed9.GetValidatorFor(o).Var(o.freeHandsUseCase, "required"); err != nil {
 		return fmt461e464ebed9.Errorf("field `freeHandsUseCase` did not pass the test: %w", err)
+	}
+	return nil
+}
+
+func _validate_Options_getChatsUseCase(o *Options) error {
+	if err := validator461e464ebed9.GetValidatorFor(o).Var(o.getChatsUseCase, "required"); err != nil {
+		return fmt461e464ebed9.Errorf("field `getChatsUseCase` did not pass the test: %w", err)
 	}
 	return nil
 }
