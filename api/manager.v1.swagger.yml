@@ -121,12 +121,17 @@ components:
 
 
     GetFreeHandsBtnAvailabilityResponse:
-      required: [ "data" ]
       properties:
         data:
-          additionalProperties: true
+          $ref: "#/components/schemas/FreeHandsBtnAvailability"
         error:
           $ref: "#/components/schemas/Error"
+
+    FreeHandsBtnAvailability:
+      required: [ available ]
+      properties:
+        available:
+          type: boolean
 
     FreeHandsResponse:
       properties:

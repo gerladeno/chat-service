@@ -21,6 +21,7 @@ func (Adapter) Adapt(ev eventstream.Event) (any, error) {
 		event.EventId = v.EventID
 		event.RequestId = v.RequestID
 		err = event.FromNewMessageEvent(NewMessageEvent{
+			ChatId:    v.ChatID,
 			AuthorId:  v.AuthorID,
 			Body:      v.MessageBody,
 			CreatedAt: v.CreatedAt,

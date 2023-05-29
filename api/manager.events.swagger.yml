@@ -23,8 +23,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/MessageId"
         - type: object
-          required: [ body, createdAt, authorId ]
+          required: [ chatId, body, createdAt, authorId ]
           properties:
+            chatId:
+              type: string
+              format: uuid
+              x-go-type: types.ChatID
+              x-go-import:
+                path: "github.com/gerladeno/chat-service/internal/types"
             authorId:
               type: string
               format: uuid

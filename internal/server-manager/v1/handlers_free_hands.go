@@ -30,7 +30,7 @@ func (h Handlers) PostGetFreeHandsBtnAvailability(eCtx echo.Context, params Post
 		return fmt.Errorf("handling can receive problem button availability: %v", err)
 	}
 	if err = eCtx.JSON(http.StatusOK, GetFreeHandsBtnAvailabilityResponse{
-		Data: map[string]interface{}{"available": can.Result},
+		Data: &FreeHandsBtnAvailability{Available: can.Result},
 	}); err != nil {
 		return fmt.Errorf("sending response on can receive problem button availability: %v", err)
 	}

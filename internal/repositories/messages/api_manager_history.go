@@ -21,6 +21,8 @@ func (r *Repo) GetManagerChatMessages(
 	query := r.db.Message(ctx).Query().Where(
 		message.ChatID(chatID),
 		message.IsVisibleForManager(true),
+		message.IsService(false),
+		message.IsBlocked(false),
 		message.HasProblemWith(
 			problem.ManagerID(managerID),
 			problem.ResolvedAtIsNil(),
