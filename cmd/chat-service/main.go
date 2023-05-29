@@ -223,6 +223,7 @@ func run() (errReturned error) {
 	}
 	clientMessageSentJob, err := clientmessagesentjob.New(clientmessagesentjob.NewOptions(
 		msgRepo,
+		problemsRepo,
 		eventStream,
 	))
 	if err != nil {
@@ -303,6 +304,7 @@ func run() (errReturned error) {
 		cfg.Servers.Manager.SecWSProtocol,
 
 		chatRepo,
+		msgRepo,
 
 		managerLoad,
 		managerPool,

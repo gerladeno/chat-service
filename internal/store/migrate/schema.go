@@ -143,6 +143,11 @@ var (
 					Where: "resolved_at IS NULL",
 				},
 			},
+			{
+				Name:    "problem_chat_id",
+				Unique:  false,
+				Columns: []*schema.Column{ProblemsColumns[4]},
+			},
 		},
 	}
 	// Tables holds all the tables in the schema.

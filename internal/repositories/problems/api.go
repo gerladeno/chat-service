@@ -90,3 +90,17 @@ func (r *Repo) GetRequestID(ctx context.Context, problemID types.ProblemID) (typ
 	}
 	return msg.InitialRequestID, nil
 }
+
+func (r *Repo) GetActiveManager(ctx context.Context, chatID types.ChatID) (types.UserID, error) {
+	p, err := r.db.Problem(ctx).Query().Where(
+		problem.ChatID(chatID),
+	).First(ctx)
+	switch {
+	case store.IsNotFound(err):
+		return types.UserIDNil, ErrProblemNotFound
+	case err != nil:
+		return types.UserIDNil, fmt.Errorf("get chat's active manager: %v", err)
+	default:
+		return p.ManagerID, nil
+	}
+}

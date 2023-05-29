@@ -11,6 +11,7 @@ import (
 
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
 	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
+	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
 	"github.com/gerladeno/chat-service/internal/server"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
 	"github.com/gerladeno/chat-service/internal/server/errhandler"
@@ -18,6 +19,7 @@ import (
 	managerpool "github.com/gerladeno/chat-service/internal/services/manager-pool"
 	canreceiveproblems "github.com/gerladeno/chat-service/internal/usecases/manager/can-receive-problems"
 	freehands "github.com/gerladeno/chat-service/internal/usecases/manager/free-hands"
+	getchathistory "github.com/gerladeno/chat-service/internal/usecases/manager/get-chat-history"
 	getchats "github.com/gerladeno/chat-service/internal/usecases/manager/get-chats"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
@@ -36,6 +38,7 @@ func initServerManager(
 	wsSecProtocol string,
 
 	chatRepo *chatsrepo.Repo,
+	msgRepo *messagesrepo.Repo,
 
 	managerLoad *managerload.Service,
 	managerPool managerpool.Pool,
@@ -61,12 +64,17 @@ func initServerManager(
 	if err != nil {
 		return nil, fmt.Errorf("init getChatsUseCase: %v", err)
 	}
+	gerChatHistoryUseCase, err := getchathistory.New(getchathistory.NewOptions(msgRepo))
+	if err != nil {
+		return nil, fmt.Errorf("init gerChatHistoryUseCase: %v", err)
+	}
 
 	v1Handlers, err := managerv1.NewHandlers(managerv1.NewOptions(
 		lg,
 		canReceiveProblemsUseCase,
 		freeHandsUseCase,
 		getChatsUseCase,
+		gerChatHistoryUseCase,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("initing v1Handlers: %v", err)

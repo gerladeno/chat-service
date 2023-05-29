@@ -52,6 +52,44 @@ func (mr *MockmessageRepositoryMockRecorder) GetMessageByID(ctx, msgID interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMessageByID", reflect.TypeOf((*MockmessageRepository)(nil).GetMessageByID), ctx, msgID)
 }
 
+// MockproblemsRepository is a mock of problemsRepository interface.
+type MockproblemsRepository struct {
+	ctrl     *gomock.Controller
+	recorder *MockproblemsRepositoryMockRecorder
+}
+
+// MockproblemsRepositoryMockRecorder is the mock recorder for MockproblemsRepository.
+type MockproblemsRepositoryMockRecorder struct {
+	mock *MockproblemsRepository
+}
+
+// NewMockproblemsRepository creates a new mock instance.
+func NewMockproblemsRepository(ctrl *gomock.Controller) *MockproblemsRepository {
+	mock := &MockproblemsRepository{ctrl: ctrl}
+	mock.recorder = &MockproblemsRepositoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockproblemsRepository) EXPECT() *MockproblemsRepositoryMockRecorder {
+	return m.recorder
+}
+
+// GetActiveManager mocks base method.
+func (m *MockproblemsRepository) GetActiveManager(ctx context.Context, chatID types.ChatID) (types.UserID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveManager", ctx, chatID)
+	ret0, _ := ret[0].(types.UserID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveManager indicates an expected call of GetActiveManager.
+func (mr *MockproblemsRepositoryMockRecorder) GetActiveManager(ctx, chatID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveManager", reflect.TypeOf((*MockproblemsRepository)(nil).GetActiveManager), ctx, chatID)
+}
+
 // MockeventStream is a mock of eventStream interface.
 type MockeventStream struct {
 	ctrl     *gomock.Controller

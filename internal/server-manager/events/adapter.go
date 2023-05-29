@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
-	"github.com/gerladeno/chat-service/internal/types"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
 
@@ -21,15 +20,10 @@ func (Adapter) Adapt(ev eventstream.Event) (any, error) {
 	case *eventstream.NewMessageEvent:
 		event.EventId = v.EventID
 		event.RequestId = v.RequestID
-		var userID *types.UserID
-		if !v.AuthorID.IsZero() {
-			userID = &v.AuthorID
-		}
 		err = event.FromNewMessageEvent(NewMessageEvent{
-			AuthorId:  userID,
+			AuthorId:  v.AuthorID,
 			Body:      v.MessageBody,
 			CreatedAt: v.CreatedAt,
-			IsService: v.IsService,
 			MessageId: v.MessageID,
 		})
 	case *eventstream.MessageSentEvent:

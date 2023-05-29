@@ -23,7 +23,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/MessageId"
         - type: object
-          required: [ body, createdAt, isService ]
+          required: [ body, createdAt, authorId ]
           properties:
             authorId:
               type: string
@@ -36,8 +36,6 @@ components:
             createdAt:
               type: string
               format: date-time
-            isService:
-              type: boolean
 
     NewMessageEvent:
       $ref: "#/components/schemas/Message"
