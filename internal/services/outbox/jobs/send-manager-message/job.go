@@ -1,4 +1,4 @@
-package managerassignedtoproblemjob
+package sendmanagermessagejob
 
 import (
 	"context"
@@ -9,36 +9,36 @@ import (
 
 	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
 	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
+	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	"github.com/gerladeno/chat-service/internal/types"
 )
 
-const Name = "manager-assigned-to-problem"
+const Name = "send-manager-message"
 
-//go:generate mockgen -source=$GOFILE -destination=mocks/job_mock.gen.go -package=managerassignedtoproblemjobmocks
-
-type messageRepository interface {
-	GetMessageByID(ctx context.Context, msgID types.MessageID) (*messagesrepo.Message, error)
-}
-
-type chatRepository interface {
+//go:generate mockgen -source=$GOFILE -destination=mocks/job_mock.gen.go -package=sendmanagermessagejobmocks
+type chatsRepository interface {
 	GetUserID(ctx context.Context, chatID types.ChatID) (types.UserID, error)
 }
 
-type managerLoad interface {
-	CanManagerTakeProblem(ctx context.Context, managerID types.UserID) (bool, error)
+type messageRepository interface {
+	GetMessageByID(ctx context.Context, msgID types.MessageID) (*messagesrepo.Message, error)
 }
 
 type eventStream interface {
 	Publish(ctx context.Context, userID types.UserID, event eventstream.Event) error
 }
 
+type messageProducer interface {
+	ProduceMessage(ctx context.Context, message msgproducer.Message) error
+}
+
 //go:generate options-gen -out-filename=job_options.gen.go -from-struct=Options
 type Options struct {
+	chatsRepository   chatsRepository   `option:"mandatory" validate:"required"`
 	messageRepository messageRepository `option:"mandatory" validate:"required"`
-	chatRepository    chatRepository    `option:"mandatory" validate:"required"`
-	managerLoad       managerLoad       `option:"mandatory" validate:"required"`
 	eventStream       eventStream       `option:"mandatory" validate:"required"`
+	messageProducer   messageProducer   `option:"mandatory" validate:"required"`
 }
 
 type Job struct {
@@ -48,7 +48,7 @@ type Job struct {
 
 func New(opts Options) (*Job, error) {
 	if err := opts.Validate(); err != nil {
-		return nil, fmt.Errorf("validating manager assigned job options: %v", err)
+		return nil, fmt.Errorf("validating send manager message job options: %v", err)
 	}
 	return &Job{Options: opts}, nil
 }
@@ -73,34 +73,36 @@ func (j *Job) Handle(ctx context.Context, payload string) (err error) {
 	if err != nil {
 		return fmt.Errorf("getting message by id: %v", err)
 	}
-	userID, err := j.chatRepository.GetUserID(ctx, msg.ChatID)
+	clientID, err := j.chatsRepository.GetUserID(ctx, msg.ChatID)
 	if err != nil {
 		return fmt.Errorf("getting client id: %v", err)
 	}
-	if err = j.eventStream.Publish(ctx, userID, eventstream.NewNewMessageEvent(
+	if err = j.messageProducer.ProduceMessage(ctx, msgproducer.Message{
+		ID:         messageID,
+		ChatID:     msg.ChatID,
+		Body:       msg.Body,
+		FromClient: false,
+	}); err != nil {
+		return fmt.Errorf("produce message: %v", err)
+	}
+	if err = j.eventStream.Publish(ctx, clientID, eventstream.NewNewMessageEvent(
 		types.NewEventID(),
 		msg.RequestID,
 		msg.ChatID,
-		msg.ID,
-		msg.AuthorID,
+		messageID,
+		managerID,
 		msg.CreatedAt,
 		msg.Body,
-		msg.IsService,
+		false,
 	)); err != nil {
-		return fmt.Errorf("publishing message: %v", err)
+		return fmt.Errorf("publishing new new message event: %v", err)
 	}
-	can, err := j.managerLoad.CanManagerTakeProblem(ctx, managerID)
-	if err != nil {
-		return fmt.Errorf("can manager take problem for newChatEvent: %v", err)
-	}
-	if err = j.eventStream.Publish(ctx, managerID, eventstream.NewNewChatEvent(
+	if err = j.eventStream.Publish(ctx, managerID, eventstream.NewMessageSentEvent(
 		types.NewEventID(),
 		msg.RequestID,
-		msg.ChatID,
-		userID,
-		can,
+		messageID,
 	)); err != nil {
-		return fmt.Errorf("publishing message: %v", err)
+		return fmt.Errorf("publishing new message event sent: %v", err)
 	}
 	return nil
 }

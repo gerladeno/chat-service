@@ -109,7 +109,7 @@ func (s *Service) performProblemsDistribution(ctx context.Context) error {
 			if _, err = s.outbox.Put(
 				ctx,
 				managerassignedtoproblemjob.Name,
-				managerAssignedPayload(msg.ID, managerID),
+				managerassignedtoproblemjob.NewPayload(msg.ID, managerID),
 				time.Now(),
 			); err != nil {
 				return fmt.Errorf("put a job to outbox: %w", err)
@@ -124,8 +124,4 @@ func (s *Service) performProblemsDistribution(ctx context.Context) error {
 
 func managerAssignedString(managerID types.UserID) string {
 	return fmt.Sprintf(`Manager %s will answer you`, managerID)
-}
-
-func managerAssignedPayload(msgID types.MessageID, managerID types.UserID) string {
-	return fmt.Sprintf("%s.%s", msgID.String(), managerID.String())
 }

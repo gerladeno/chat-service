@@ -303,9 +303,12 @@ func run() (errReturned error) {
 		cfg.Servers.Manager.RequiredAccess.Role,
 		cfg.Servers.Manager.SecWSProtocol,
 
+		db,
 		chatRepo,
 		msgRepo,
+		problemsRepo,
 
+		outboxService,
 		managerLoad,
 		managerPool,
 		managerWSHandler,
@@ -329,6 +332,7 @@ func run() (errReturned error) {
 		msgRepo,
 		chatRepo,
 		problemsRepo,
+
 		outboxService,
 		clientWSHandler,
 	)

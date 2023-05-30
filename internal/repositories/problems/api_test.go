@@ -279,3 +279,18 @@ func (s *ProblemsRepoSuite) Test_GetActiveManager() {
 		s.Require().Equal(managerID, resp)
 	})
 }
+
+func (s *ProblemsRepoSuite) Test_GetAssignedProblemID() {
+	s.Run("problem not found", func() {
+		_, err := s.repo.GetAssignedProblemID(s.Ctx, types.NewUserID(), types.NewChatID())
+		s.Require().ErrorIs(err, problemsrepo.ErrProblemNotFound)
+	})
+
+	s.Run("positive", func() {
+		managerID := types.NewUserID()
+		chatID, problemID := s.createChatWithProblemAssignedTo(managerID)
+		pID, err := s.repo.GetAssignedProblemID(s.Ctx, managerID, chatID)
+		s.Require().NoError(err)
+		s.Require().Equal(problemID, pID)
+	})
+}

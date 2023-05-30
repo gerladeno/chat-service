@@ -103,10 +103,29 @@ type Message struct {
 	Id        types.MessageID `json:"id"`
 }
 
+// MessageWithoutBody defines model for MessageWithoutBody.
+type MessageWithoutBody struct {
+	AuthorId  types.UserID    `json:"authorId"`
+	CreatedAt time.Time       `json:"createdAt"`
+	Id        types.MessageID `json:"id"`
+}
+
 // MessagesPage defines model for MessagesPage.
 type MessagesPage struct {
 	Messages []Message `json:"messages"`
 	Next     string    `json:"next"`
+}
+
+// SendMessageRequest defines model for SendMessageRequest.
+type SendMessageRequest struct {
+	ChatId      types.ChatID `json:"chatId"`
+	MessageBody string       `json:"messageBody"`
+}
+
+// SendMessageResponse defines model for SendMessageResponse.
+type SendMessageResponse struct {
+	Data  *MessageWithoutBody `json:"data,omitempty"`
+	Error *Error              `json:"error,omitempty"`
 }
 
 // XRequestIDHeader defines model for XRequestIDHeader.
@@ -132,8 +151,16 @@ type PostGetFreeHandsBtnAvailabilityParams struct {
 	XRequestID XRequestIDHeader `json:"X-Request-ID"`
 }
 
+// PostSendMessageParams defines parameters for PostSendMessage.
+type PostSendMessageParams struct {
+	XRequestID XRequestIDHeader `json:"X-Request-ID"`
+}
+
 // PostGetChatHistoryJSONRequestBody defines body for PostGetChatHistory for application/json ContentType.
 type PostGetChatHistoryJSONRequestBody = GetChatHistoryRequest
+
+// PostSendMessageJSONRequestBody defines body for PostSendMessage for application/json ContentType.
+type PostSendMessageJSONRequestBody = SendMessageRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -221,6 +248,11 @@ type ClientInterface interface {
 
 	// PostGetFreeHandsBtnAvailability request
 	PostGetFreeHandsBtnAvailability(ctx context.Context, params *PostGetFreeHandsBtnAvailabilityParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSendMessage request with any body
+	PostSendMessageWithBody(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostSendMessage(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) PostFreeHands(ctx context.Context, params *PostFreeHandsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -273,6 +305,30 @@ func (c *Client) PostGetChats(ctx context.Context, params *PostGetChatsParams, r
 
 func (c *Client) PostGetFreeHandsBtnAvailability(ctx context.Context, params *PostGetFreeHandsBtnAvailabilityParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostGetFreeHandsBtnAvailabilityRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSendMessageWithBody(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSendMessageRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSendMessage(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSendMessageRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -440,6 +496,55 @@ func NewPostGetFreeHandsBtnAvailabilityRequest(server string, params *PostGetFre
 	return req, nil
 }
 
+// NewPostSendMessageRequest calls the generic PostSendMessage builder with application/json body
+func NewPostSendMessageRequest(server string, params *PostSendMessageParams, body PostSendMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostSendMessageRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostSendMessageRequestWithBody generates requests for PostSendMessage with any type of body
+func NewPostSendMessageRequestWithBody(server string, params *PostSendMessageParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sendMessage")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	var headerParam0 string
+
+	headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, params.XRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Request-ID", headerParam0)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -496,6 +601,11 @@ type ClientWithResponsesInterface interface {
 
 	// PostGetFreeHandsBtnAvailability request
 	PostGetFreeHandsBtnAvailabilityWithResponse(ctx context.Context, params *PostGetFreeHandsBtnAvailabilityParams, reqEditors ...RequestEditorFn) (*PostGetFreeHandsBtnAvailabilityResponse, error)
+
+	// PostSendMessage request with any body
+	PostSendMessageWithBodyWithResponse(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error)
+
+	PostSendMessageWithResponse(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error)
 }
 
 type PostFreeHandsResponse struct {
@@ -586,6 +696,28 @@ func (r PostGetFreeHandsBtnAvailabilityResponse) StatusCode() int {
 	return 0
 }
 
+type PostSendMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SendMessageResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSendMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSendMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // PostFreeHandsWithResponse request returning *PostFreeHandsResponse
 func (c *ClientWithResponses) PostFreeHandsWithResponse(ctx context.Context, params *PostFreeHandsParams, reqEditors ...RequestEditorFn) (*PostFreeHandsResponse, error) {
 	rsp, err := c.PostFreeHands(ctx, params, reqEditors...)
@@ -628,6 +760,23 @@ func (c *ClientWithResponses) PostGetFreeHandsBtnAvailabilityWithResponse(ctx co
 		return nil, err
 	}
 	return ParsePostGetFreeHandsBtnAvailabilityResponse(rsp)
+}
+
+// PostSendMessageWithBodyWithResponse request with arbitrary body returning *PostSendMessageResponse
+func (c *ClientWithResponses) PostSendMessageWithBodyWithResponse(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error) {
+	rsp, err := c.PostSendMessageWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSendMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostSendMessageWithResponse(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error) {
+	rsp, err := c.PostSendMessage(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSendMessageResponse(rsp)
 }
 
 // ParsePostFreeHandsResponse parses an HTTP response from a PostFreeHandsWithResponse call
@@ -734,6 +883,32 @@ func ParsePostGetFreeHandsBtnAvailabilityResponse(rsp *http.Response) (*PostGetF
 	return response, nil
 }
 
+// ParsePostSendMessageResponse parses an HTTP response from a PostSendMessageWithResponse call
+func ParsePostSendMessageResponse(rsp *http.Response) (*PostSendMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSendMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SendMessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -748,6 +923,9 @@ type ServerInterface interface {
 
 	// (POST /getFreeHandsBtnAvailability)
 	PostGetFreeHandsBtnAvailability(ctx echo.Context, params PostGetFreeHandsBtnAvailabilityParams) error
+
+	// (POST /sendMessage)
+	PostSendMessage(ctx echo.Context, params PostSendMessageParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -887,6 +1065,39 @@ func (w *ServerInterfaceWrapper) PostGetFreeHandsBtnAvailability(ctx echo.Contex
 	return err
 }
 
+// PostSendMessage converts echo context to params.
+func (w *ServerInterfaceWrapper) PostSendMessage(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{""})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostSendMessageParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Request-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-ID")]; found {
+		var XRequestID XRequestIDHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Request-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, valueList[0], &XRequestID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Request-ID: %s", err))
+		}
+
+		params.XRequestID = XRequestID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Request-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostSendMessage(ctx, params)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -919,31 +1130,34 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/getChatHistory", wrapper.PostGetChatHistory)
 	router.POST(baseURL+"/getChats", wrapper.PostGetChats)
 	router.POST(baseURL+"/getFreeHandsBtnAvailability", wrapper.PostGetFreeHandsBtnAvailability)
+	router.POST(baseURL+"/sendMessage", wrapper.PostSendMessage)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

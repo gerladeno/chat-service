@@ -104,3 +104,17 @@ func (r *Repo) GetActiveManager(ctx context.Context, chatID types.ChatID) (types
 		return p.ManagerID, nil
 	}
 }
+
+func (r *Repo) GetAssignedProblemID(ctx context.Context, managerID types.UserID, chatID types.ChatID) (types.ProblemID, error) {
+	problemID, err := r.db.Problem(ctx).Query().Where(
+		problem.ManagerID(managerID),
+		problem.ChatID(chatID),
+	).FirstID(ctx)
+	switch {
+	case store.IsNotFound(err):
+		return types.ProblemIDNil, ErrProblemNotFound
+	case err != nil:
+		return types.ProblemIDNil, fmt.Errorf("get assigned problem id: %v", err)
+	}
+	return problemID, nil
+}

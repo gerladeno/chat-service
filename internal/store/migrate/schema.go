@@ -136,9 +136,9 @@ var (
 		},
 		Indexes: []*schema.Index{
 			{
-				Name:    "problem_manager_id",
+				Name:    "problem_id_manager_id",
 				Unique:  true,
-				Columns: []*schema.Column{ProblemsColumns[1]},
+				Columns: []*schema.Column{ProblemsColumns[0], ProblemsColumns[1]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "resolved_at IS NULL",
 				},

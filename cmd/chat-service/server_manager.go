@@ -12,15 +12,19 @@ import (
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
 	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
 	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
+	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
 	"github.com/gerladeno/chat-service/internal/server"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
 	"github.com/gerladeno/chat-service/internal/server/errhandler"
 	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
 	managerpool "github.com/gerladeno/chat-service/internal/services/manager-pool"
+	"github.com/gerladeno/chat-service/internal/services/outbox"
+	"github.com/gerladeno/chat-service/internal/store"
 	canreceiveproblems "github.com/gerladeno/chat-service/internal/usecases/manager/can-receive-problems"
 	freehands "github.com/gerladeno/chat-service/internal/usecases/manager/free-hands"
 	getchathistory "github.com/gerladeno/chat-service/internal/usecases/manager/get-chat-history"
 	getchats "github.com/gerladeno/chat-service/internal/usecases/manager/get-chats"
+	sendmessage "github.com/gerladeno/chat-service/internal/usecases/manager/send-message"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
 
@@ -37,9 +41,12 @@ func initServerManager(
 	role string,
 	wsSecProtocol string,
 
+	db *store.Database,
 	chatRepo *chatsrepo.Repo,
 	msgRepo *messagesrepo.Repo,
+	problemsRepo *problemsrepo.Repo,
 
+	outboxService *outbox.Service,
 	managerLoad *managerload.Service,
 	managerPool managerpool.Pool,
 	wsHandler *websocketstream.HTTPHandler,
@@ -68,6 +75,15 @@ func initServerManager(
 	if err != nil {
 		return nil, fmt.Errorf("init gerChatHistoryUseCase: %v", err)
 	}
+	sendManagerMessageUseCase, err := sendmessage.New(sendmessage.NewOptions(
+		msgRepo,
+		outboxService,
+		problemsRepo,
+		db,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("init sendManagerMessageUseCase: %v", err)
+	}
 
 	v1Handlers, err := managerv1.NewHandlers(managerv1.NewOptions(
 		lg,
@@ -75,6 +91,7 @@ func initServerManager(
 		freeHandsUseCase,
 		getChatsUseCase,
 		gerChatHistoryUseCase,
+		sendManagerMessageUseCase,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("initing v1Handlers: %v", err)
