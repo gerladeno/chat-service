@@ -126,4 +126,58 @@ var _ = Describe("Manager Scheduling Smoke", Ordered, func() {
 		Expect(lastMsg.AuthorID.String()).Should(Equal(clientChat.ClientID().String()))
 		Expect(lastMsg.CreatedAt.IsZero()).Should(BeFalse())
 	})
+
+	It("manager answers", func() {
+		lastChat, ok := managerWs.LastChat()
+		Expect(ok).Should(BeTrue())
+		body := "pomogi sebe sam"
+		err := managerWs.SendMessage(ctx, body, lastChat.ID)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		waitForEvent(clientStream) // NewMessageEvent.
+		clientMsg, ok := clientChat.LastMessage()
+		Expect(ok).Should(BeTrue())
+		Expect(clientMsg.AuthorID).Should(Equal(managerWs.ManagerID()))
+		Expect(clientMsg.Body).Should(Equal(body))
+
+		waitForEvent(managerStream) // NewMessageEvent.
+		waitForEvent(managerStream) // MessageSentEvent
+		lastChat, ok = managerWs.LastChat()
+		Expect(ok).Should(BeTrue())
+		msg, ok := lastChat.LastMessage()
+		Expect(ok).Should(BeTrue())
+		Expect(msg.Body).Should(Equal(body))
+
+		err = managerWs.Refresh(ctx)
+		Expect(err).ShouldNot(HaveOccurred())
+		lastChat, ok = managerWs.LastChat()
+		Expect(ok).Should(BeTrue())
+		n := lastChat.MessagesCount()
+		Expect(n).Should(Equal(2))
+	})
+
+	It("manager closes chat", func() {
+		chatsBefore := managerWs.ChatsCount()
+		lastChat, ok := managerWs.LastChat()
+		Expect(ok).Should(BeTrue())
+		err := managerWs.CloseChat(ctx, lastChat.ID)
+		Expect(err).ShouldNot(HaveOccurred())
+
+		waitForEvent(managerStream) // ChatClosedEvent.
+		chatsAfter := managerWs.ChatsCount()
+		Expect(chatsBefore).Should(Equal(chatsAfter + 1))
+
+		can := managerWs.CanTakeMoreProblems()
+		Expect(can).Should(BeTrue())
+
+		waitForEvent(clientStream) // NewMessageEvent.
+		clientMsg, ok := clientChat.LastMessage()
+		Expect(ok).Should(BeTrue())
+		Expect(clientMsg.AuthorID.IsZero()).Should(BeTrue())
+		Expect(clientMsg.IsService).Should(BeTrue())
+
+		err = clientChat.Refresh(ctx)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(clientChat.MessagesCount()).Should(Equal(4))
+	})
 })

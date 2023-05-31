@@ -67,6 +67,7 @@ func New(opts Options) (*Service, error) {
 
 func (s *Service) Run(ctx context.Context) error {
 	zap.L().Named(serviceName).Info("started manager scheduler")
+	defer zap.L().Named(serviceName).Info("stopped")
 	t := time.NewTicker(s.period)
 	defer t.Stop()
 	for {

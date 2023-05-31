@@ -113,6 +113,7 @@ type verdict struct {
 
 func (s *Service) Run(ctx context.Context) error {
 	log := zap.L().Named(serviceName)
+	defer log.Info("stopped")
 	log.Info("starting afc verdicts processor")
 	eg, ctx := errgroup.WithContext(ctx)
 	defer func() {
@@ -144,7 +145,7 @@ func (s *Service) processMessages(ctx context.Context, reader KafkaReader) error
 		var err error
 		for {
 			msg, err = reader.FetchMessage(ctx)
-			if err != nil {
+			if err != nil && !errors.Is(err, context.Canceled) {
 				zap.L().Named(serviceName).Warn("fetching message", zap.Error(err))
 				errCh <- struct{}{}
 				break

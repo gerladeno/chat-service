@@ -87,6 +87,7 @@ func (s *Server) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
+		defer s.lg.Info("stopped")
 		<-ctx.Done()
 
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)

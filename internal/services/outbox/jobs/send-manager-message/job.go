@@ -95,7 +95,19 @@ func (j *Job) Handle(ctx context.Context, payload string) (err error) {
 		msg.Body,
 		false,
 	)); err != nil {
-		return fmt.Errorf("publishing new new message event: %v", err)
+		return fmt.Errorf("publishing new new message event for client: %v", err)
+	}
+	if err = j.eventStream.Publish(ctx, managerID, eventstream.NewNewMessageEvent(
+		types.NewEventID(),
+		msg.RequestID,
+		msg.ChatID,
+		messageID,
+		managerID,
+		msg.CreatedAt,
+		msg.Body,
+		false,
+	)); err != nil {
+		return fmt.Errorf("publishing new new message event for client: %v", err)
 	}
 	if err = j.eventStream.Publish(ctx, managerID, eventstream.NewMessageSentEvent(
 		types.NewEventID(),

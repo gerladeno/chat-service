@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"go.uber.org/atomic"
@@ -273,6 +274,11 @@ func (ws *Workspace) HandleEvent(_ context.Context, data []byte) error {
 			vv.Body,
 			vv.CreatedAt,
 		))
+	case apimanagerevents.ChatClosedEvent:
+		ws.setCanTakeMoreProblemsFlag(vv.CanTakeMoreProblems)
+		if err = ws.removeChat(vv.ChatId); err != nil {
+			return fmt.Errorf("remove chat: %v", err)
+		}
 	}
 
 	return nil
@@ -293,7 +299,7 @@ func (ws *Workspace) appendChat(chatID types.ChatID, clientID types.UserID) {
 	}
 }
 
-func (ws *Workspace) removeChat(id types.ChatID) error { //nolint:unused
+func (ws *Workspace) removeChat(id types.ChatID) error {
 	if _, ok := ws.getChat(id); !ok {
 		return fmt.Errorf("%v: %v", errUnknownChat, id)
 	}
@@ -330,4 +336,82 @@ func (ws *Workspace) pushMessageToBack(msg *Message) {
 	} else {
 		ws.chatsByID[chatID].pushToBack(msg)
 	}
+}
+
+type SendMessageOption func(opts *sendMessageOpts)
+
+type sendMessageOpts struct {
+	reqID types.RequestID
+}
+
+func (ws *Workspace) SendMessage(
+	ctx context.Context,
+	body string,
+	chatID types.ChatID,
+	opts ...SendMessageOption,
+) error {
+	options := sendMessageOpts{
+		reqID: types.NewRequestID(),
+	}
+	for _, o := range opts {
+		o(&options)
+	}
+
+	resp, err := ws.api.PostSendMessageWithResponse(ctx,
+		&apimanagerv1.PostSendMessageParams{XRequestID: options.reqID},
+		apimanagerv1.PostSendMessageJSONRequestBody{MessageBody: body, ChatId: chatID},
+	)
+	if err != nil {
+		return fmt.Errorf("post request: %v", err)
+	}
+	if resp.JSON200 == nil {
+		return errNoResponseBody
+	}
+	if err := resp.JSON200.Error; err != nil {
+		return fmt.Errorf("%v: %v", err.Code, err.Message)
+	}
+
+	data := resp.JSON200.Data
+	if data == nil {
+		return errNoDataInResponse
+	}
+
+	ws.pushMessageToBack(NewMessage(
+		data.Id,
+		chatID,
+		ws.id,
+		body,
+		data.CreatedAt,
+	))
+
+	time.Sleep(10 * time.Millisecond)
+	return nil
+}
+
+func (ws *Workspace) CloseChat(
+	ctx context.Context,
+	chatID types.ChatID,
+	opts ...SendMessageOption,
+) error {
+	options := sendMessageOpts{
+		reqID: types.NewRequestID(),
+	}
+	for _, o := range opts {
+		o(&options)
+	}
+	resp, err := ws.api.PostCloseChatWithResponse(ctx,
+		&apimanagerv1.PostCloseChatParams{XRequestID: options.reqID},
+		apimanagerv1.PostCloseChatJSONRequestBody{ChatId: chatID},
+	)
+	if err != nil {
+		return fmt.Errorf("post request: %v", err)
+	}
+	if resp.JSON200 == nil {
+		return errNoResponseBody
+	}
+	if err := resp.JSON200.Error; err != nil {
+		return fmt.Errorf("%v: %v", err.Code, err.Message)
+	}
+	time.Sleep(10 * time.Millisecond)
+	return nil
 }

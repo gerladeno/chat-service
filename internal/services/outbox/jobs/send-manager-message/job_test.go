@@ -68,6 +68,16 @@ func TestJob_Handle(t *testing.T) {
 		msg.Body,
 		false,
 	)).Return(nil)
+	eventStream.EXPECT().Publish(ctx, managerID, eventstream.NewNewMessageEvent(
+		types.NewEventID(),
+		msg.RequestID,
+		msg.ChatID,
+		msgID,
+		managerID,
+		msg.CreatedAt,
+		msg.Body,
+		false,
+	)).Return(nil)
 	eventStream.EXPECT().Publish(ctx, managerID, eventstream.NewMessageSentEvent(
 		types.NewEventID(),
 		msg.RequestID,
