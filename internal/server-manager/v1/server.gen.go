@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/gerladeno/chat-service/internal/types"
@@ -29,7 +30,33 @@ const (
 // Defines values for ErrorCode.
 const (
 	N5000 ErrorCode = 5000
+	N5001 ErrorCode = 5001
 )
+
+// Chat defines model for Chat.
+type Chat struct {
+	ChatId   types.ChatID `json:"chatId"`
+	ClientId types.UserID `json:"clientId"`
+}
+
+// ChatId defines model for ChatId.
+type ChatId struct {
+	ChatId types.ChatID `json:"chatId"`
+}
+
+// ChatList defines model for ChatList.
+type ChatList struct {
+	Chats []Chat `json:"chats"`
+}
+
+// CloseChatRequest defines model for CloseChatRequest.
+type CloseChatRequest = ChatId
+
+// CloseChatResponse defines model for CloseChatResponse.
+type CloseChatResponse struct {
+	Data  *string `json:"data"`
+	Error *Error  `json:"error,omitempty"`
+}
 
 // Error defines model for Error.
 type Error struct {
@@ -42,23 +69,95 @@ type Error struct {
 // ErrorCode contains HTTP error codes and specific business logic error codes (the last must be >= 1000).
 type ErrorCode int
 
+// FreeHandsBtnAvailability defines model for FreeHandsBtnAvailability.
+type FreeHandsBtnAvailability struct {
+	Available bool `json:"available"`
+}
+
 // FreeHandsResponse defines model for FreeHandsResponse.
 type FreeHandsResponse struct {
 	Data  *map[string]interface{} `json:"data,omitempty"`
 	Error *Error                  `json:"error,omitempty"`
 }
 
+// GetChatHistoryRequest defines model for GetChatHistoryRequest.
+type GetChatHistoryRequest struct {
+	ChatId   types.ChatID `json:"chatId"`
+	Cursor   *string      `json:"cursor,omitempty"`
+	PageSize *int         `json:"pageSize,omitempty"`
+}
+
+// GetChatHistoryResponse defines model for GetChatHistoryResponse.
+type GetChatHistoryResponse struct {
+	Data  *MessagesPage `json:"data,omitempty"`
+	Error *Error        `json:"error,omitempty"`
+}
+
+// GetChatsResponse defines model for GetChatsResponse.
+type GetChatsResponse struct {
+	Data  *ChatList `json:"data,omitempty"`
+	Error *Error    `json:"error,omitempty"`
+}
+
 // GetFreeHandsBtnAvailabilityResponse defines model for GetFreeHandsBtnAvailabilityResponse.
 type GetFreeHandsBtnAvailabilityResponse struct {
-	Data  map[string]interface{} `json:"data"`
-	Error *Error                 `json:"error,omitempty"`
+	Data  *FreeHandsBtnAvailability `json:"data,omitempty"`
+	Error *Error                    `json:"error,omitempty"`
+}
+
+// Message defines model for Message.
+type Message struct {
+	AuthorId  types.UserID    `json:"authorId"`
+	Body      string          `json:"body"`
+	CreatedAt time.Time       `json:"createdAt"`
+	Id        types.MessageID `json:"id"`
+}
+
+// MessageWithoutBody defines model for MessageWithoutBody.
+type MessageWithoutBody struct {
+	AuthorId  types.UserID    `json:"authorId"`
+	CreatedAt time.Time       `json:"createdAt"`
+	Id        types.MessageID `json:"id"`
+}
+
+// MessagesPage defines model for MessagesPage.
+type MessagesPage struct {
+	Messages []Message `json:"messages"`
+	Next     string    `json:"next"`
+}
+
+// SendMessageRequest defines model for SendMessageRequest.
+type SendMessageRequest struct {
+	ChatId      types.ChatID `json:"chatId"`
+	MessageBody string       `json:"messageBody"`
+}
+
+// SendMessageResponse defines model for SendMessageResponse.
+type SendMessageResponse struct {
+	Data  *MessageWithoutBody `json:"data,omitempty"`
+	Error *Error              `json:"error,omitempty"`
 }
 
 // XRequestIDHeader defines model for XRequestIDHeader.
 type XRequestIDHeader = types.RequestID
 
+// PostCloseChatParams defines parameters for PostCloseChat.
+type PostCloseChatParams struct {
+	XRequestID XRequestIDHeader `json:"X-Request-ID"`
+}
+
 // PostFreeHandsParams defines parameters for PostFreeHands.
 type PostFreeHandsParams struct {
+	XRequestID XRequestIDHeader `json:"X-Request-ID"`
+}
+
+// PostGetChatHistoryParams defines parameters for PostGetChatHistory.
+type PostGetChatHistoryParams struct {
+	XRequestID XRequestIDHeader `json:"X-Request-ID"`
+}
+
+// PostGetChatsParams defines parameters for PostGetChats.
+type PostGetChatsParams struct {
 	XRequestID XRequestIDHeader `json:"X-Request-ID"`
 }
 
@@ -66,6 +165,20 @@ type PostFreeHandsParams struct {
 type PostGetFreeHandsBtnAvailabilityParams struct {
 	XRequestID XRequestIDHeader `json:"X-Request-ID"`
 }
+
+// PostSendMessageParams defines parameters for PostSendMessage.
+type PostSendMessageParams struct {
+	XRequestID XRequestIDHeader `json:"X-Request-ID"`
+}
+
+// PostCloseChatJSONRequestBody defines body for PostCloseChat for application/json ContentType.
+type PostCloseChatJSONRequestBody = CloseChatRequest
+
+// PostGetChatHistoryJSONRequestBody defines body for PostGetChatHistory for application/json ContentType.
+type PostGetChatHistoryJSONRequestBody = GetChatHistoryRequest
+
+// PostSendMessageJSONRequestBody defines body for PostSendMessage for application/json ContentType.
+type PostSendMessageJSONRequestBody = SendMessageRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -140,15 +253,93 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// PostCloseChat request with any body
+	PostCloseChatWithBody(ctx context.Context, params *PostCloseChatParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostCloseChat(ctx context.Context, params *PostCloseChatParams, body PostCloseChatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostFreeHands request
 	PostFreeHands(ctx context.Context, params *PostFreeHandsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostGetChatHistory request with any body
+	PostGetChatHistoryWithBody(ctx context.Context, params *PostGetChatHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostGetChatHistory(ctx context.Context, params *PostGetChatHistoryParams, body PostGetChatHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostGetChats request
+	PostGetChats(ctx context.Context, params *PostGetChatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostGetFreeHandsBtnAvailability request
 	PostGetFreeHandsBtnAvailability(ctx context.Context, params *PostGetFreeHandsBtnAvailabilityParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSendMessage request with any body
+	PostSendMessageWithBody(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostSendMessage(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) PostCloseChatWithBody(ctx context.Context, params *PostCloseChatParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostCloseChatRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostCloseChat(ctx context.Context, params *PostCloseChatParams, body PostCloseChatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostCloseChatRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) PostFreeHands(ctx context.Context, params *PostFreeHandsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostFreeHandsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostGetChatHistoryWithBody(ctx context.Context, params *PostGetChatHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostGetChatHistoryRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostGetChatHistory(ctx context.Context, params *PostGetChatHistoryParams, body PostGetChatHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostGetChatHistoryRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostGetChats(ctx context.Context, params *PostGetChatsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostGetChatsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +362,79 @@ func (c *Client) PostGetFreeHandsBtnAvailability(ctx context.Context, params *Po
 	return c.Client.Do(req)
 }
 
+func (c *Client) PostSendMessageWithBody(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSendMessageRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSendMessage(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSendMessageRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// NewPostCloseChatRequest calls the generic PostCloseChat builder with application/json body
+func NewPostCloseChatRequest(server string, params *PostCloseChatParams, body PostCloseChatJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostCloseChatRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostCloseChatRequestWithBody generates requests for PostCloseChat with any type of body
+func NewPostCloseChatRequestWithBody(server string, params *PostCloseChatParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/closeChat")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	var headerParam0 string
+
+	headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, params.XRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Request-ID", headerParam0)
+
+	return req, nil
+}
+
 // NewPostFreeHandsRequest generates requests for PostFreeHands
 func NewPostFreeHandsRequest(server string, params *PostFreeHandsParams) (*http.Request, error) {
 	var err error
@@ -181,6 +445,91 @@ func NewPostFreeHandsRequest(server string, params *PostFreeHandsParams) (*http.
 	}
 
 	operationPath := fmt.Sprintf("/freeHands")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var headerParam0 string
+
+	headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, params.XRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Request-ID", headerParam0)
+
+	return req, nil
+}
+
+// NewPostGetChatHistoryRequest calls the generic PostGetChatHistory builder with application/json body
+func NewPostGetChatHistoryRequest(server string, params *PostGetChatHistoryParams, body PostGetChatHistoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostGetChatHistoryRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostGetChatHistoryRequestWithBody generates requests for PostGetChatHistory with any type of body
+func NewPostGetChatHistoryRequestWithBody(server string, params *PostGetChatHistoryParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/getChatHistory")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	var headerParam0 string
+
+	headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, params.XRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Request-ID", headerParam0)
+
+	return req, nil
+}
+
+// NewPostGetChatsRequest generates requests for PostGetChats
+func NewPostGetChatsRequest(server string, params *PostGetChatsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/getChats")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -243,6 +592,55 @@ func NewPostGetFreeHandsBtnAvailabilityRequest(server string, params *PostGetFre
 	return req, nil
 }
 
+// NewPostSendMessageRequest calls the generic PostSendMessage builder with application/json body
+func NewPostSendMessageRequest(server string, params *PostSendMessageParams, body PostSendMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostSendMessageRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewPostSendMessageRequestWithBody generates requests for PostSendMessage with any type of body
+func NewPostSendMessageRequestWithBody(server string, params *PostSendMessageParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sendMessage")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	var headerParam0 string
+
+	headerParam0, err = runtime.StyleParamWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, params.XRequestID)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("X-Request-ID", headerParam0)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -286,11 +684,51 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// PostCloseChat request with any body
+	PostCloseChatWithBodyWithResponse(ctx context.Context, params *PostCloseChatParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCloseChatResponse, error)
+
+	PostCloseChatWithResponse(ctx context.Context, params *PostCloseChatParams, body PostCloseChatJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCloseChatResponse, error)
+
 	// PostFreeHands request
 	PostFreeHandsWithResponse(ctx context.Context, params *PostFreeHandsParams, reqEditors ...RequestEditorFn) (*PostFreeHandsResponse, error)
 
+	// PostGetChatHistory request with any body
+	PostGetChatHistoryWithBodyWithResponse(ctx context.Context, params *PostGetChatHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostGetChatHistoryResponse, error)
+
+	PostGetChatHistoryWithResponse(ctx context.Context, params *PostGetChatHistoryParams, body PostGetChatHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*PostGetChatHistoryResponse, error)
+
+	// PostGetChats request
+	PostGetChatsWithResponse(ctx context.Context, params *PostGetChatsParams, reqEditors ...RequestEditorFn) (*PostGetChatsResponse, error)
+
 	// PostGetFreeHandsBtnAvailability request
 	PostGetFreeHandsBtnAvailabilityWithResponse(ctx context.Context, params *PostGetFreeHandsBtnAvailabilityParams, reqEditors ...RequestEditorFn) (*PostGetFreeHandsBtnAvailabilityResponse, error)
+
+	// PostSendMessage request with any body
+	PostSendMessageWithBodyWithResponse(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error)
+
+	PostSendMessageWithResponse(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error)
+}
+
+type PostCloseChatResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CloseChatResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostCloseChatResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostCloseChatResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type PostFreeHandsResponse struct {
@@ -309,6 +747,50 @@ func (r PostFreeHandsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostFreeHandsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostGetChatHistoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GetChatHistoryResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostGetChatHistoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostGetChatHistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostGetChatsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *GetChatsResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostGetChatsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostGetChatsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -337,6 +819,45 @@ func (r PostGetFreeHandsBtnAvailabilityResponse) StatusCode() int {
 	return 0
 }
 
+type PostSendMessageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SendMessageResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSendMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSendMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// PostCloseChatWithBodyWithResponse request with arbitrary body returning *PostCloseChatResponse
+func (c *ClientWithResponses) PostCloseChatWithBodyWithResponse(ctx context.Context, params *PostCloseChatParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCloseChatResponse, error) {
+	rsp, err := c.PostCloseChatWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostCloseChatResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostCloseChatWithResponse(ctx context.Context, params *PostCloseChatParams, body PostCloseChatJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCloseChatResponse, error) {
+	rsp, err := c.PostCloseChat(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostCloseChatResponse(rsp)
+}
+
 // PostFreeHandsWithResponse request returning *PostFreeHandsResponse
 func (c *ClientWithResponses) PostFreeHandsWithResponse(ctx context.Context, params *PostFreeHandsParams, reqEditors ...RequestEditorFn) (*PostFreeHandsResponse, error) {
 	rsp, err := c.PostFreeHands(ctx, params, reqEditors...)
@@ -346,6 +867,32 @@ func (c *ClientWithResponses) PostFreeHandsWithResponse(ctx context.Context, par
 	return ParsePostFreeHandsResponse(rsp)
 }
 
+// PostGetChatHistoryWithBodyWithResponse request with arbitrary body returning *PostGetChatHistoryResponse
+func (c *ClientWithResponses) PostGetChatHistoryWithBodyWithResponse(ctx context.Context, params *PostGetChatHistoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostGetChatHistoryResponse, error) {
+	rsp, err := c.PostGetChatHistoryWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostGetChatHistoryResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostGetChatHistoryWithResponse(ctx context.Context, params *PostGetChatHistoryParams, body PostGetChatHistoryJSONRequestBody, reqEditors ...RequestEditorFn) (*PostGetChatHistoryResponse, error) {
+	rsp, err := c.PostGetChatHistory(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostGetChatHistoryResponse(rsp)
+}
+
+// PostGetChatsWithResponse request returning *PostGetChatsResponse
+func (c *ClientWithResponses) PostGetChatsWithResponse(ctx context.Context, params *PostGetChatsParams, reqEditors ...RequestEditorFn) (*PostGetChatsResponse, error) {
+	rsp, err := c.PostGetChats(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostGetChatsResponse(rsp)
+}
+
 // PostGetFreeHandsBtnAvailabilityWithResponse request returning *PostGetFreeHandsBtnAvailabilityResponse
 func (c *ClientWithResponses) PostGetFreeHandsBtnAvailabilityWithResponse(ctx context.Context, params *PostGetFreeHandsBtnAvailabilityParams, reqEditors ...RequestEditorFn) (*PostGetFreeHandsBtnAvailabilityResponse, error) {
 	rsp, err := c.PostGetFreeHandsBtnAvailability(ctx, params, reqEditors...)
@@ -353,6 +900,49 @@ func (c *ClientWithResponses) PostGetFreeHandsBtnAvailabilityWithResponse(ctx co
 		return nil, err
 	}
 	return ParsePostGetFreeHandsBtnAvailabilityResponse(rsp)
+}
+
+// PostSendMessageWithBodyWithResponse request with arbitrary body returning *PostSendMessageResponse
+func (c *ClientWithResponses) PostSendMessageWithBodyWithResponse(ctx context.Context, params *PostSendMessageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error) {
+	rsp, err := c.PostSendMessageWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSendMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostSendMessageWithResponse(ctx context.Context, params *PostSendMessageParams, body PostSendMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSendMessageResponse, error) {
+	rsp, err := c.PostSendMessage(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSendMessageResponse(rsp)
+}
+
+// ParsePostCloseChatResponse parses an HTTP response from a PostCloseChatWithResponse call
+func ParsePostCloseChatResponse(rsp *http.Response) (*PostCloseChatResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostCloseChatResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CloseChatResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParsePostFreeHandsResponse parses an HTTP response from a PostFreeHandsWithResponse call
@@ -371,6 +961,58 @@ func ParsePostFreeHandsResponse(rsp *http.Response) (*PostFreeHandsResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest FreeHandsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostGetChatHistoryResponse parses an HTTP response from a PostGetChatHistoryWithResponse call
+func ParsePostGetChatHistoryResponse(rsp *http.Response) (*PostGetChatHistoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostGetChatHistoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetChatHistoryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostGetChatsResponse parses an HTTP response from a PostGetChatsWithResponse call
+func ParsePostGetChatsResponse(rsp *http.Response) (*PostGetChatsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostGetChatsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetChatsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -407,19 +1049,90 @@ func ParsePostGetFreeHandsBtnAvailabilityResponse(rsp *http.Response) (*PostGetF
 	return response, nil
 }
 
+// ParsePostSendMessageResponse parses an HTTP response from a PostSendMessageWithResponse call
+func ParsePostSendMessageResponse(rsp *http.Response) (*PostSendMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSendMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SendMessageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (POST /closeChat)
+	PostCloseChat(ctx echo.Context, params PostCloseChatParams) error
 
 	// (POST /freeHands)
 	PostFreeHands(ctx echo.Context, params PostFreeHandsParams) error
 
+	// (POST /getChatHistory)
+	PostGetChatHistory(ctx echo.Context, params PostGetChatHistoryParams) error
+
+	// (POST /getChats)
+	PostGetChats(ctx echo.Context, params PostGetChatsParams) error
+
 	// (POST /getFreeHandsBtnAvailability)
 	PostGetFreeHandsBtnAvailability(ctx echo.Context, params PostGetFreeHandsBtnAvailabilityParams) error
+
+	// (POST /sendMessage)
+	PostSendMessage(ctx echo.Context, params PostSendMessageParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// PostCloseChat converts echo context to params.
+func (w *ServerInterfaceWrapper) PostCloseChat(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{""})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostCloseChatParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Request-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-ID")]; found {
+		var XRequestID XRequestIDHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Request-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, valueList[0], &XRequestID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Request-ID: %s", err))
+		}
+
+		params.XRequestID = XRequestID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Request-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostCloseChat(ctx, params)
+	return err
 }
 
 // PostFreeHands converts echo context to params.
@@ -452,6 +1165,72 @@ func (w *ServerInterfaceWrapper) PostFreeHands(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostFreeHands(ctx, params)
+	return err
+}
+
+// PostGetChatHistory converts echo context to params.
+func (w *ServerInterfaceWrapper) PostGetChatHistory(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{""})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostGetChatHistoryParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Request-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-ID")]; found {
+		var XRequestID XRequestIDHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Request-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, valueList[0], &XRequestID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Request-ID: %s", err))
+		}
+
+		params.XRequestID = XRequestID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Request-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostGetChatHistory(ctx, params)
+	return err
+}
+
+// PostGetChats converts echo context to params.
+func (w *ServerInterfaceWrapper) PostGetChats(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{""})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostGetChatsParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Request-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-ID")]; found {
+		var XRequestID XRequestIDHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Request-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, valueList[0], &XRequestID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Request-ID: %s", err))
+		}
+
+		params.XRequestID = XRequestID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Request-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostGetChats(ctx, params)
 	return err
 }
 
@@ -488,6 +1267,39 @@ func (w *ServerInterfaceWrapper) PostGetFreeHandsBtnAvailability(ctx echo.Contex
 	return err
 }
 
+// PostSendMessage converts echo context to params.
+func (w *ServerInterfaceWrapper) PostSendMessage(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{""})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostSendMessageParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "X-Request-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Request-ID")]; found {
+		var XRequestID XRequestIDHeader
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for X-Request-ID, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithLocation("simple", false, "X-Request-ID", runtime.ParamLocationHeader, valueList[0], &XRequestID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter X-Request-ID: %s", err))
+		}
+
+		params.XRequestID = XRequestID
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter X-Request-ID is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostSendMessage(ctx, params)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -516,27 +1328,41 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.POST(baseURL+"/closeChat", wrapper.PostCloseChat)
 	router.POST(baseURL+"/freeHands", wrapper.PostFreeHands)
+	router.POST(baseURL+"/getChatHistory", wrapper.PostGetChatHistory)
+	router.POST(baseURL+"/getChats", wrapper.PostGetChats)
 	router.POST(baseURL+"/getFreeHandsBtnAvailability", wrapper.PostGetFreeHandsBtnAvailability)
+	router.POST(baseURL+"/sendMessage", wrapper.PostSendMessage)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xVTW/cNhD9K8S0hxbQruS6BQIBPThxU7tAUSMx0ADuHmapWYkxRTLkaBHD0H8vhtJ+",
-	"wU7i3npaiJyv99487iNo3wfvyHGC+hECRuyJKeavD+/o00CJry+vCBuKcmYc1NBNnwU47Alq+LCYIxfX",
-	"l1BApE+DidRAzXGgApLuqEfJ3vjYI0MNw2AaKIAfguQnjsa1UMDnResXpg8+8jQOd1BDa7gb1kvt+7Kl",
-	"aLEh50vdIS8Sxa3RVBrHFB3aUgomGOdKc/l8uNyDgXEcd0NlnL/F6DO4EH2gyIbysfYNye/3kTZQw3fl",
-	"gatyzi5z6hsJHAtoiNHYnHsKbCygp5SwpWfuxmPC7vaBxdR/NRZwaFI/QkNJRxPYeFFCe8doXFJXt7c3",
-	"iiRQSV5S6BqVAmmzMVqth2QcpaSsb40+ifuBO1IWE6t+SKzWpP4ZquqcflVnVVX9uIQCyA091He/VFW1",
-	"KqA3zvRy8HNV7RUUAdq8Ep8XEr7YYpTlSAJpP/+f6LCl+NeWovXYUJPhvY1EV+ia9I5S8C7RUykaZDyi",
-	"zq8/kmahlXbSfVOkSfXfifftXrO72KKxuDbW8MO3u2PTGOEd7c3Rvez4f53kVPJcf5WXkvQQDT+8l/ip",
-	"+ZowUrwYxAm7r7c7G/3x9y3Mqyy8TLcHX3XMYcJt3MZnAg1buXmN7l69H4I4Tb3pkNWsjbq4uYYCthTT",
-	"tGHbM+HZB3IYDNRwvqyW51Bkb+YBy82O0MycT/x0TSOaRGpjsVUszVD1czuTVCRsHhR7hVpTYGVSGihB",
-	"bhpRKlw3UMONTwft8gCHt+ruedoPIeWTt2xciQiT5Hnyn6pqcr1jchkDhmCNzhOUH5MAeTx6y76m89OV",
-	"ziqckuLvVTy6Hgso2y+v55fJ1R3pe2U2SoRQneSq9cDsnbCLUw1LzxL6FT/8zyl+iZNfQPqR6TLGY7vd",
-	"rQSB/MfsGDitdUlbsj705FhNUVDAEO3svLosrddoO5+4flW9OivFS6vx3wAAAP//VFEzD3UHAAA=",
+	"H4sIAAAAAAAC/9xYbW/bNhD+KwQ3YBsgR/KyAoWAfUhfk6Fdg6VDC2T+QEtniy1FquTJjRfovw9HvdmW",
+	"nKRpUqT7Fotvd8/z8PhcLnli8sJo0Oh4fMkLYUUOCNb/ev8XfCrB4cmzYxApWPomNY95Vv8MuBY58Ji/",
+	"nzQzJyfPeMAtfCqlhZTHaEsIuEsyyAWtXhibC+QxL0uZ8oDjuqD1Dq3USx7wi8nSTGReGIt1OJjxmC8l",
+	"ZuX8IDF5uASrRArahEkmcOLArmQCodQIVgsV0oaOV81Ozfb+40GXDK+qqg3K5/k0E/44odSbBY/PL/mP",
+	"FhY85j+EPTxhsyCk2Scpr4JLXlhTgEUJfptESdA0dNNEt8L724H16HVDdwEEZdrTcd7HOOtiMvMPkCCv",
+	"ZlXAm9ziQWrd9y9PzO95/4nVEbZJvJIOx9Pwf0iE3P9xHdEkpSYbYa1Y87FzXX2sMg5oTSO07x3FPh1X",
+	"GO1gmE8q0N9qXSol5gra+76dTRVwsNbY6+B+7if5kJ6383fwMyncaJenNLEKeAoopPJrBzHl4JxYwsjY",
+	"DibtxKA+f9bG97SJJgWXWFmgNFQaE6NRSO3Y8du3p8wnzmidY0KnzBWQyIVM2Lx0UoNzTJmlTLbm/YwZ",
+	"MCUcsrx0yObA/imj6BB+Z9Moin454AEHXeY8Pn8URVHwKIqms4DnUsucvv4WRR0DRPfSF+qLCa2ZrISl",
+	"ku0ory6J10KLJdg3K7DKiBRIkN3gn+YoQbmCU2vmCnKf/gsLcCx06p6gPloJqcRcKonrIWOiHlWbMM+N",
+	"USD0AOd+7tYZ18tvp459udxeApLQj6VDY9cb1/drH4TSujqQgfoKsYQz+a/PKhcXNXVToq4jcjrksapG",
+	"q/Zu/NcBdlUyr2u1u1OS/O2xdF8XRVfCbxfBPoF+XVB7ZX+LIF/31WfnxpSYGfvATETA5yZdjwo5sSAQ",
+	"0iPcCjgVCBOUOfCR10DeMrkGs/t/BTsOmrw3s/Thz3oG30nMTIlPGny+CzL/j5z5eDaI63PcIKuuagOa",
+	"mhf+5s6wvb0DcxhwDRd4Y0/heLOAYjwDnTYb390T1BzUyjMXF69ALwnzw6h5bdoP0+BmQfu9xtuHrRTu",
+	"4BXavFxfXGSpx4OktBLXZzRWnz4HYcEelZRx++tFK+s/3r3lTWfonYof7XWeIRa18qReGM+yRPI2/InQ",
+	"H9lZWZCsGZHBGlPFjk5PeMBXYF3tD1dTysQUoEUhecwPD6KDQx74i+ADDJPWeHvoTC2DbZPpvTmj+/GT",
+	"Y8L7M1bUBo3sIaEtaCpVHn5qHHZm3p/U9/h7ZNVPCQf/A6hmtSrAdUWPPC/oWq5FoWTiDw8/OAr2cqP9",
+	"v1LCu+3TzhWn1sJ/qHXlsfo1iu7j/Ea5PoBt4BsXzCw4o1aQBp4E5ilL2cJYlte8HzQKDBetadjPphXS",
+	"AVsosWRIu4l2EyYdsyDSNUPDRJJAgUw6V/q6MSS58yd3RfI9IT209iNIm4/MbgwTlMstm7sfz5eANS1Z",
+	"PXP8Smyb5od7L8abk298OfZ0GCO8tS8tU9LhwQ517mrSfOMrHTKz8AQ69llixqhYtuXNXUnmQ1f+oDka",
+	"AdBPGKB3Zcs9CmiSQfKRyQWjCsQyWsvmJaLRVFb6ZnsPnHsPfPAIX9v83azauN7L7AeZDA/T8Jk13ogK",
+	"NamY1Duu1A2L9HBrzogV/cYFZ8xJ7q82rHH79Y3ZMH4e1U3Ldz4jzKipaDHf3vAZrECZIgeNrJ7FA15a",
+	"1bi/OAyVSYTKjMP4cfR4GpKfm1X/BQAA///yEuMsSBkAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

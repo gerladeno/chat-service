@@ -22,8 +22,19 @@ import (
 
 // Event defines model for Event.
 type Event struct {
-	EventType string `json:"eventType"`
+	EventId   types.EventID   `json:"eventId"`
+	EventType string          `json:"eventType"`
+	RequestId types.RequestID `json:"requestId"`
 	union     json.RawMessage
+}
+
+// Message defines model for Message.
+type Message struct {
+	AuthorId  *types.UserID   `json:"authorId,omitempty"`
+	Body      string          `json:"body"`
+	CreatedAt time.Time       `json:"createdAt"`
+	IsService bool            `json:"isService"`
+	MessageId types.MessageID `json:"messageId"`
 }
 
 // MessageBlockedEvent defines model for MessageBlockedEvent.
@@ -31,26 +42,14 @@ type MessageBlockedEvent = MessageId
 
 // MessageId defines model for MessageId.
 type MessageId struct {
-	EventId   types.EventID   `json:"eventId"`
-	EventType string          `json:"eventType"`
 	MessageId types.MessageID `json:"messageId"`
-	RequestId types.RequestID `json:"requestId"`
 }
 
 // MessageSentEvent defines model for MessageSentEvent.
 type MessageSentEvent = MessageId
 
 // NewMessageEvent defines model for NewMessageEvent.
-type NewMessageEvent struct {
-	AuthorId  *types.UserID   `json:"authorId,omitempty"`
-	Body      string          `json:"body"`
-	CreatedAt time.Time       `json:"createdAt"`
-	EventId   types.EventID   `json:"eventId"`
-	EventType string          `json:"eventType"`
-	IsService bool            `json:"isService"`
-	MessageId types.MessageID `json:"messageId"`
-	RequestId types.RequestID `json:"requestId"`
-}
+type NewMessageEvent = Message
 
 // AsNewMessageEvent returns the union data inside the Event as a NewMessageEvent
 func (t Event) AsNewMessageEvent() (NewMessageEvent, error) {
@@ -180,9 +179,19 @@ func (t Event) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	object["eventId"], err = json.Marshal(t.EventId)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'eventId': %w", err)
+	}
+
 	object["eventType"], err = json.Marshal(t.EventType)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling 'eventType': %w", err)
+	}
+
+	object["requestId"], err = json.Marshal(t.RequestId)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'requestId': %w", err)
 	}
 
 	b, err = json.Marshal(object)
@@ -200,10 +209,24 @@ func (t *Event) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	if raw, found := object["eventId"]; found {
+		err = json.Unmarshal(raw, &t.EventId)
+		if err != nil {
+			return fmt.Errorf("error reading 'eventId': %w", err)
+		}
+	}
+
 	if raw, found := object["eventType"]; found {
 		err = json.Unmarshal(raw, &t.EventType)
 		if err != nil {
 			return fmt.Errorf("error reading 'eventType': %w", err)
+		}
+	}
+
+	if raw, found := object["requestId"]; found {
+		err = json.Unmarshal(raw, &t.RequestId)
+		if err != nil {
+			return fmt.Errorf("error reading 'requestId': %w", err)
 		}
 	}
 
@@ -213,16 +236,16 @@ func (t *Event) UnmarshalJSON(b []byte) error {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xWPW/bMBD9K8a1I20l6BJwa+IOHpoCdTsFHmjpbLHhV8mTXUPQfy9IqbEcC4ZjNJsn",
-	"EeTdu3f3HkTWkFvtrEFDAXgNIS9Ri7T8skFDcVHIkHuppRFkfdzQwjlp1nH5FUMQa7xXNn/GokuBD9ke",
-	"Nesgs6FQ9g9gjobOyd7HMXjEbbd7MvN1WMPAeevQ0+5RaAQOGPd/7BzGM2vw2wr4Uw0fPa7OBz0df0T/",
-	"zISDaTWLF+oSk0Z75rwGSl8I5KM4TcPA4+9KeiyAP/VCFw0b1q0eQp8VcbmyXos44qqSBbBXtRj8Ga/t",
-	"uNuMnzBJmLNp/2wstbO+LSSoBA5rSWW1nORWZ2v0ShRobJaXgsYB/UbmmElD6I1QWUJNXZ1qmoFuO7uU",
-	"djeYdyEe5cDwlon+h7pDTX7viEyHXTKLfPZT7s+030TPR21LV/dc3XOJe3o//6uJriZ6o4mOngE1CKXO",
-	"uMP3/654GR/6TlRUWn+pgj8D+neRb2mL3aDlco+CsPhMB4QLQTgmqfGIdcNAhnlbqAe4tFahMEeapLr9",
-	"Kv30xQu4Xf7CPL5TmgggzcombEkqnt4L8zyaVy4OYvRQCho9KImGRkm3AAw26IO0BjhsbtNbzKERTgKH",
-	"T5PbyQ2wNLwA3FRKMYiDQh+S0AXGR6qjNn2KG1TW6YjeRgGDyivgsA08y5TNhSptIH53c3eTbUPk/DcA",
-	"AP//QB2YKAwLAAA=",
+	"H4sIAAAAAAAC/+xWTW8aMRD9K2jao2GJeol8a0IPHJpKpT1FHMx6YN34q7YXitD+92rMBnYhimgVqVWU",
+	"mzUfz2/eWwbvoHTGO4s2ReA7iGWFRuTjpzXaRAepYhmUUVYkFyhghPfKruj4GWMUK7zRrnxA2bbAu+KI",
+	"WrSQxVOl7BFghjZd0n2sY3CHmzb6bOdpWcPAB+cxpO2dMAgckOLfth4p5yx+WQK/38H7gMvLQZ+vP6N/",
+	"YUNPrWZ+oK4we5SZTyUdly4YQSLUtZLAINE8HGIKZBWDX8OVGyrjXcimepEq4LBSqaoXo9KZYoVBC4nW",
+	"FWUl0jBiWKsSC2UTBit0QYCRFMpILXwOjjK96YSSRy357oRDwyDgzxrjf8D4a0tkAk1LSwWUwO87A7CD",
+	"vF3i8+bw0RIrofUFn0vbMJXZ976Hok6VC38gSW+Q7xHDdNJNvYRkDYOFk9snPSwDioTyY+oRliLhMCmD",
+	"Z6wbBirO9hd1ABfOaRT2TP98b/eWbvv8AO4WP7Ckn8TRjv4SOpXZHCz4K50fHXx5qU/mP/LsjLZn/YoG",
+	"6uz71zHX2Z/R22r496uBAJRduoytkqbsjbAPg1ntSYjBbSXS4FYrtGmQfYvAYI0hKmeBw/oqvwg8WuEV",
+	"cPgwuhqNgWXxInBba82AhMIQs9ES6ank0759gmvUzhtC31cBgzpo4LCJvCi0K4WuXEz8enw9LjaROP8O",
+	"AAD//37CpFaSCQAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

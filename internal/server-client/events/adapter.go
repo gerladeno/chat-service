@@ -15,36 +15,40 @@ var ErrUnsupportedEventType = errors.New("unsupported event type")
 type Adapter struct{}
 
 func (Adapter) Adapt(ev eventstream.Event) (any, error) {
+	var event Event
+	var err error
 	switch v := ev.(type) {
 	case *eventstream.NewMessageEvent:
+		event.EventId = v.EventID
+		event.RequestId = v.RequestID
 		var userID *types.UserID
-		if !v.UserID.IsZero() {
-			userID = &v.UserID
+		if !v.AuthorID.IsZero() {
+			userID = &v.AuthorID
 		}
-		return NewMessageEvent{
+		err = event.FromNewMessageEvent(NewMessageEvent{
 			AuthorId:  userID,
 			Body:      v.MessageBody,
 			CreatedAt: v.CreatedAt,
-			EventId:   v.EventID,
-			EventType: v.EventType,
 			IsService: v.IsService,
 			MessageId: v.MessageID,
-			RequestId: v.RequestID,
-		}, nil
+		})
 	case *eventstream.MessageSentEvent:
-		return MessageSentEvent{
-			EventId:   v.EventID,
-			EventType: v.EventType,
+		event.EventId = v.EventID
+		event.RequestId = v.RequestID
+		err = event.FromMessageSentEvent(MessageSentEvent{
 			MessageId: v.MessageID,
-			RequestId: v.RequestID,
-		}, nil
+		})
 	case *eventstream.MessageBlockedEvent:
-		return MessageBlockedEvent{
-			EventId:   v.EventID,
-			EventType: v.EventType,
+		event.EventId = v.EventID
+		event.RequestId = v.RequestID
+		err = event.FromMessageBlockedEvent(MessageBlockedEvent{
 			MessageId: v.MessageID,
-			RequestId: v.RequestID,
-		}, nil
+		})
+	default:
+		return nil, ErrUnsupportedEventType
 	}
-	return nil, ErrUnsupportedEventType
+	if err != nil {
+		return nil, err
+	}
+	return event, nil
 }

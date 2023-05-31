@@ -21,6 +21,8 @@ const (
 	FieldManagerID = "manager_id"
 	// FieldResolvedAt holds the string denoting the resolved_at field in the database.
 	FieldResolvedAt = "resolved_at"
+	// FieldResolvedRequestID holds the string denoting the resolved_request_id field in the database.
+	FieldResolvedRequestID = "resolved_request_id"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeMessages holds the string denoting the messages edge name in mutations.
@@ -51,6 +53,7 @@ var Columns = []string{
 	FieldChatID,
 	FieldManagerID,
 	FieldResolvedAt,
+	FieldResolvedRequestID,
 	FieldCreatedAt,
 }
 
@@ -92,6 +95,11 @@ func ByManagerID(opts ...sql.OrderTermOption) OrderOption {
 // ByResolvedAt orders the results by the resolved_at field.
 func ByResolvedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldResolvedAt, opts...).ToFunc()
+}
+
+// ByResolvedRequestID orders the results by the resolved_request_id field.
+func ByResolvedRequestID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldResolvedRequestID, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

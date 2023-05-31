@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gerladeno/chat-service/internal/types"
 	apiclientv1 "github.com/gerladeno/chat-service/tests/e2e/api/client/v1"
+	apimanagerv1 "github.com/gerladeno/chat-service/tests/e2e/api/manager/v1"
 )
 
 var _ = Describe("Error Responses", Ordered, func() {
@@ -20,12 +22,15 @@ var _ = Describe("Error Responses", Ordered, func() {
 		ctx    context.Context
 		cancel context.CancelFunc
 
-		apiClientV1 *apiclientv1.ClientWithResponses
+		apiClientV1  *apiclientv1.ClientWithResponses
+		apiManagerV1 *apimanagerv1.ClientWithResponses
 	)
 
 	BeforeAll(func() {
 		ctx, cancel = context.WithCancel(suiteCtx)
+
 		apiClientV1, _ = newClientAPI(ctx, clientsPool.Get())
+		apiManagerV1, _ = newManagerAPI(ctx, managersPool.Get())
 	})
 
 	AfterAll(func() {
@@ -81,6 +86,17 @@ var _ = Describe("Error Responses", Ordered, func() {
 		// Assert.
 		Expect(err).ShouldNot(HaveOccurred())
 		expectSendClientMsgRespCode(resp, http.StatusBadRequest)
+	})
+
+	It("5000 try to close chat without open problems", func() {
+		resp, err := apiManagerV1.PostCloseChatWithResponse(ctx,
+			&apimanagerv1.PostCloseChatParams{XRequestID: types.NewRequestID()},
+			apimanagerv1.PostCloseChatJSONRequestBody{ChatId: types.NewChatID()},
+		)
+		Expect(err).ShouldNot(HaveOccurred())
+		err = fmt.Errorf("%v: %v", resp.JSON200.Error.Code, resp.JSON200.Error.Message)
+		Expect(err).Should(HaveOccurred())
+		Expect(strings.Contains(err.Error(), "5001")).Should(BeTrue())
 	})
 })
 

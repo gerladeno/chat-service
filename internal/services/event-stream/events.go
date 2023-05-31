@@ -7,9 +7,11 @@ import (
 )
 
 const (
-	TypeMessageEventSent    = `MessageSentEvent`
-	TypeMessageEventBlocked = `MessageBlockedEvent`
+	TypeMessageSentEvent    = `MessageSentEvent`
+	TypeMessageBlockedEvent = `MessageBlockedEvent`
 	TypeNewMessageEvent     = `NewMessageEvent`
+	TypeNewChatEvent        = `NewChatEvent`
+	TypeChatClosedEvent     = `ChatClosedEvent`
 )
 
 type Event interface {
@@ -24,7 +26,6 @@ type CoreEventFields struct {
 	EventID   types.EventID
 	EventType string
 	RequestID types.RequestID
-	MessageID types.MessageID
 }
 
 func (e CoreEventFields) Matches(x any) bool {
@@ -32,7 +33,7 @@ func (e CoreEventFields) Matches(x any) bool {
 	if !ok {
 		return false
 	}
-	return e.EventType == val.EventType && e.MessageID == val.MessageID && e.RequestID == val.RequestID
+	return e.EventType == val.EventType && e.RequestID == val.RequestID
 }
 
 func (e CoreEventFields) String() string {
@@ -45,9 +46,6 @@ func (e CoreEventFields) Validate() error {
 		er = multierr.Append(er, err)
 	}
 	if err := e.RequestID.Validate(); err != nil {
-		er = multierr.Append(er, err)
-	}
-	if err := e.MessageID.Validate(); err != nil {
 		er = multierr.Append(er, err)
 	}
 	return er

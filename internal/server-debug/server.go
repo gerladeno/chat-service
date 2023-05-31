@@ -25,18 +25,20 @@ const (
 
 //go:generate options-gen -out-filename=server_options.gen.go -from-struct=Options
 type Options struct {
-	addr                string      `option:"mandatory" validate:"required,hostname_port"`
-	v1ClientSwagger     *openapi3.T `option:"mandatory" validate:"required"`
-	v1ManagerSwagger    *openapi3.T `option:"mandatory" validate:"required"`
-	clientEventsSwagger *openapi3.T `option:"mandatory" validate:"required"`
+	addr                 string      `option:"mandatory" validate:"required,hostname_port"`
+	v1ClientSwagger      *openapi3.T `option:"mandatory" validate:"required"`
+	v1ManagerSwagger     *openapi3.T `option:"mandatory" validate:"required"`
+	clientEventsSwagger  *openapi3.T `option:"mandatory" validate:"required"`
+	managerEventsSwagger *openapi3.T `option:"mandatory" validate:"required"`
 }
 
 type Server struct {
-	lg                  *zap.Logger
-	srv                 *http.Server
-	clientSwagger       *openapi3.T
-	managerSwagger      *openapi3.T
-	clientEventsSwagger *openapi3.T
+	lg                   *zap.Logger
+	srv                  *http.Server
+	clientSwagger        *openapi3.T
+	managerSwagger       *openapi3.T
+	clientEventsSwagger  *openapi3.T
+	managerEventsSwagger *openapi3.T
 }
 
 func New(opts Options) (*Server, error) {
@@ -74,6 +76,8 @@ func New(opts Options) (*Server, error) {
 	index.addPage("/schema/manager", "Get manager OpenAPI specification")
 	e.GET("/schema/clientEvents", s.SchemaClientEvents)
 	index.addPage("/schema/clientEvents", "Get client events OpenAPI specification")
+	e.GET("/schema/managerEvents", s.SchemaManagerEvents)
+	index.addPage("/schema/managerEvents", "Get manager events OpenAPI specification")
 
 	e.GET("/", index.handler)
 	return s, nil
@@ -83,6 +87,7 @@ func (s *Server) Run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
+		defer s.lg.Info("stopped")
 		<-ctx.Done()
 
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -153,6 +158,17 @@ func (s *Server) SchemaManager(eCtx echo.Context) error {
 	data, err := s.managerSwagger.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("marshalling manager swagger json: %v", err)
+	}
+	if err = eCtx.Blob(http.StatusOK, "application/json", data); err != nil {
+		return fmt.Errorf("sending manager swager data: %v", err)
+	}
+	return nil
+}
+
+func (s *Server) SchemaManagerEvents(eCtx echo.Context) error {
+	data, err := s.managerEventsSwagger.MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("marshalling manager swager json: %v", err)
 	}
 	if err = eCtx.Blob(http.StatusOK, "application/json", data); err != nil {
 		return fmt.Errorf("sending manager swager data: %v", err)

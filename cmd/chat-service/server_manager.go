@@ -10,13 +10,22 @@ import (
 	"go.uber.org/zap"
 
 	keycloakclient "github.com/gerladeno/chat-service/internal/clients/keycloak"
+	chatsrepo "github.com/gerladeno/chat-service/internal/repositories/chats"
+	messagesrepo "github.com/gerladeno/chat-service/internal/repositories/messages"
+	problemsrepo "github.com/gerladeno/chat-service/internal/repositories/problems"
 	"github.com/gerladeno/chat-service/internal/server"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
 	"github.com/gerladeno/chat-service/internal/server/errhandler"
 	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
 	managerpool "github.com/gerladeno/chat-service/internal/services/manager-pool"
+	"github.com/gerladeno/chat-service/internal/services/outbox"
+	"github.com/gerladeno/chat-service/internal/store"
 	canreceiveproblems "github.com/gerladeno/chat-service/internal/usecases/manager/can-receive-problems"
+	closechat "github.com/gerladeno/chat-service/internal/usecases/manager/close-chat"
 	freehands "github.com/gerladeno/chat-service/internal/usecases/manager/free-hands"
+	getchathistory "github.com/gerladeno/chat-service/internal/usecases/manager/get-chat-history"
+	getchats "github.com/gerladeno/chat-service/internal/usecases/manager/get-chats"
+	sendmessage "github.com/gerladeno/chat-service/internal/usecases/manager/send-message"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
 
@@ -33,6 +42,12 @@ func initServerManager(
 	role string,
 	wsSecProtocol string,
 
+	db *store.Database,
+	chatRepo *chatsrepo.Repo,
+	msgRepo *messagesrepo.Repo,
+	problemsRepo *problemsrepo.Repo,
+
+	outboxService *outbox.Service,
 	managerLoad *managerload.Service,
 	managerPool managerpool.Pool,
 	wsHandler *websocketstream.HTTPHandler,
@@ -53,8 +68,42 @@ func initServerManager(
 	if err != nil {
 		return nil, fmt.Errorf("initing freeHandsUseCase: %v", err)
 	}
+	getChatsUseCase, err := getchats.New(getchats.NewOptions(chatRepo))
+	if err != nil {
+		return nil, fmt.Errorf("init getChatsUseCase: %v", err)
+	}
+	gerChatHistoryUseCase, err := getchathistory.New(getchathistory.NewOptions(msgRepo))
+	if err != nil {
+		return nil, fmt.Errorf("init gerChatHistoryUseCase: %v", err)
+	}
+	sendManagerMessageUseCase, err := sendmessage.New(sendmessage.NewOptions(
+		msgRepo,
+		outboxService,
+		problemsRepo,
+		db,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("init sendManagerMessageUseCase: %v", err)
+	}
+	closeChatUseCase, err := closechat.New(closechat.NewOptions(
+		msgRepo,
+		problemsRepo,
+		outboxService,
+		db,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("init closeChatUseCase: %v", err)
+	}
 
-	v1Handlers, err := managerv1.NewHandlers(managerv1.NewOptions(lg, canReceiveProblemsUseCase, freeHandsUseCase))
+	v1Handlers, err := managerv1.NewHandlers(managerv1.NewOptions(
+		lg,
+		canReceiveProblemsUseCase,
+		freeHandsUseCase,
+		getChatsUseCase,
+		gerChatHistoryUseCase,
+		sendManagerMessageUseCase,
+		closeChatUseCase,
+	))
 	if err != nil {
 		return nil, fmt.Errorf("initing v1Handlers: %v", err)
 	}

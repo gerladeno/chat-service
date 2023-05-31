@@ -2,6 +2,7 @@ package websocketstream
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gerladeno/chat-service/internal/middlewares"
 	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
@@ -17,7 +19,6 @@ import (
 
 const (
 	writeTimeout = time.Second
-	pingPeriod   = 250 * time.Millisecond
 )
 
 type eventStream interface {
@@ -38,6 +39,8 @@ type Options struct {
 
 type HTTPHandler struct {
 	Options
+	pingPeriod time.Duration
+	pongWait   time.Duration
 }
 
 func NewHTTPHandler(opts Options) (*HTTPHandler, error) {
@@ -45,7 +48,9 @@ func NewHTTPHandler(opts Options) (*HTTPHandler, error) {
 		return nil, fmt.Errorf("validating ws http handler options: %v", err)
 	}
 	return &HTTPHandler{
-		Options: opts,
+		Options:    opts,
+		pingPeriod: opts.pingPeriod,
+		pongWait:   pongWait(opts.pingPeriod),
 	}, nil
 }
 
@@ -61,20 +66,28 @@ func (h *HTTPHandler) Serve(eCtx echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("subscribe on event stream: %v", err)
 	}
-	go func() {
-		if err = h.readLoop(ctx, ws); err != nil {
-			h.logger.Warn("ws readLoop", zap.Error(err))
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return h.readLoop(ctx, ws)
+	})
+	eg.Go(func() error {
+		return h.writeLoop(ctx, ws, eventsCh)
+	})
+	eg.Go(func() error {
+		select {
+		case <-ctx.Done():
+		case <-h.shutdownCh:
+			closer.Close(websocket.CloseNormalClosure)
 		}
-	}()
-	go func() {
-		if err = h.writeLoop(ctx, ws, eventsCh); err != nil {
-			h.logger.Warn("ws writeLoop", zap.Error(err))
+		return nil
+	})
+	if err = eg.Wait(); err != nil {
+		if !errors.Is(err, websocket.ErrCloseSent) {
+			h.logger.Error("unexpected error", zap.Error(err))
+			closer.Close(websocket.CloseInternalServerErr)
 		}
-	}()
-	go func() {
-		<-h.shutdownCh
-		closer.Close(websocket.CloseNormalClosure)
-	}()
+	}
+	closer.Close(websocket.CloseNormalClosure)
 	return nil
 }
 
@@ -86,9 +99,9 @@ func (h *HTTPHandler) readLoop(_ context.Context, ws Websocket) error {
 		if err != nil {
 			return fmt.Errorf("get next reader: %v", err)
 		}
-		_ = ws.SetReadDeadline(time.Now().Add(pingPeriod))
+		_ = ws.SetReadDeadline(time.Now().Add(h.pongWait))
 		ws.SetPongHandler(func(string) error {
-			_ = ws.SetReadDeadline(time.Now().Add(pingPeriod))
+			_ = ws.SetReadDeadline(time.Now().Add(h.pongWait))
 			return nil
 		})
 	}
@@ -100,7 +113,7 @@ func (h *HTTPHandler) writeLoop(_ context.Context, ws Websocket, events <-chan e
 	var adapted any
 	var event eventstream.Event
 	var w io.WriteCloser
-	t := time.NewTicker(pingPeriod)
+	t := time.NewTicker(h.pingPeriod)
 	defer t.Stop()
 	for {
 		select {
@@ -134,4 +147,8 @@ func (h *HTTPHandler) writeLoop(_ context.Context, ws Websocket, events <-chan e
 			}
 		}
 	}
+}
+
+func pongWait(ping time.Duration) time.Duration {
+	return ping * 3 / 2
 }

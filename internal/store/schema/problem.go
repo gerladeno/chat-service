@@ -21,6 +21,7 @@ func (Problem) Fields() []ent.Field {
 		field.UUID("chat_id", types.ChatID{}),
 		field.UUID("manager_id", types.UserID{}).Optional(),
 		field.Time("resolved_at").Optional(),
+		field.UUID("resolved_request_id", types.RequestID{}).Optional(),
 		newCreatedAtField(),
 	}
 }
@@ -35,6 +36,7 @@ func (Problem) Edges() []ent.Edge {
 
 func (Problem) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("chat_id").Annotations(entsql.IndexWhere("resolved_at IS NULL")).Unique(),
+		index.Fields("id", "manager_id").Annotations(entsql.IndexWhere("resolved_at IS NULL")).Unique(),
+		index.Fields("chat_id"),
 	}
 }

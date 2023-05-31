@@ -486,18 +486,6 @@ func (u *MessageUpsert) UpdateChatID() *MessageUpsert {
 	return u
 }
 
-// SetInitialRequestID sets the "initial_request_id" field.
-func (u *MessageUpsert) SetInitialRequestID(v types.RequestID) *MessageUpsert {
-	u.Set(message.FieldInitialRequestID, v)
-	return u
-}
-
-// UpdateInitialRequestID sets the "initial_request_id" field to the value that was provided on create.
-func (u *MessageUpsert) UpdateInitialRequestID() *MessageUpsert {
-	u.SetExcluded(message.FieldInitialRequestID)
-	return u
-}
-
 // SetProblemID sets the "problem_id" field.
 func (u *MessageUpsert) SetProblemID(v types.ProblemID) *MessageUpsert {
 	u.Set(message.FieldProblemID, v)
@@ -581,6 +569,9 @@ func (u *MessageUpsertOne) UpdateNewValues() *MessageUpsertOne {
 		if _, exists := u.create.mutation.ID(); exists {
 			s.SetIgnore(message.FieldID)
 		}
+		if _, exists := u.create.mutation.InitialRequestID(); exists {
+			s.SetIgnore(message.FieldInitialRequestID)
+		}
 		if _, exists := u.create.mutation.Body(); exists {
 			s.SetIgnore(message.FieldBody)
 		}
@@ -653,20 +644,6 @@ func (u *MessageUpsertOne) SetChatID(v types.ChatID) *MessageUpsertOne {
 func (u *MessageUpsertOne) UpdateChatID() *MessageUpsertOne {
 	return u.Update(func(s *MessageUpsert) {
 		s.UpdateChatID()
-	})
-}
-
-// SetInitialRequestID sets the "initial_request_id" field.
-func (u *MessageUpsertOne) SetInitialRequestID(v types.RequestID) *MessageUpsertOne {
-	return u.Update(func(s *MessageUpsert) {
-		s.SetInitialRequestID(v)
-	})
-}
-
-// UpdateInitialRequestID sets the "initial_request_id" field to the value that was provided on create.
-func (u *MessageUpsertOne) UpdateInitialRequestID() *MessageUpsertOne {
-	return u.Update(func(s *MessageUpsert) {
-		s.UpdateInitialRequestID()
 	})
 }
 
@@ -926,6 +903,9 @@ func (u *MessageUpsertBulk) UpdateNewValues() *MessageUpsertBulk {
 			if _, exists := b.mutation.ID(); exists {
 				s.SetIgnore(message.FieldID)
 			}
+			if _, exists := b.mutation.InitialRequestID(); exists {
+				s.SetIgnore(message.FieldInitialRequestID)
+			}
 			if _, exists := b.mutation.Body(); exists {
 				s.SetIgnore(message.FieldBody)
 			}
@@ -999,20 +979,6 @@ func (u *MessageUpsertBulk) SetChatID(v types.ChatID) *MessageUpsertBulk {
 func (u *MessageUpsertBulk) UpdateChatID() *MessageUpsertBulk {
 	return u.Update(func(s *MessageUpsert) {
 		s.UpdateChatID()
-	})
-}
-
-// SetInitialRequestID sets the "initial_request_id" field.
-func (u *MessageUpsertBulk) SetInitialRequestID(v types.RequestID) *MessageUpsertBulk {
-	return u.Update(func(s *MessageUpsert) {
-		s.SetInitialRequestID(v)
-	})
-}
-
-// UpdateInitialRequestID sets the "initial_request_id" field to the value that was provided on create.
-func (u *MessageUpsertBulk) UpdateInitialRequestID() *MessageUpsertBulk {
-	return u.Update(func(s *MessageUpsert) {
-		s.UpdateInitialRequestID()
 	})
 }
 

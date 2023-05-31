@@ -1,12 +1,25 @@
 package eventstream
 
-import "github.com/gerladeno/chat-service/internal/types"
+import (
+	"go.uber.org/multierr"
+
+	"github.com/gerladeno/chat-service/internal/types"
+)
 
 // MessageSentEvent indicates that the message was checked by AFC
 // and was sent to the manager. Two gray ticks.
 type MessageSentEvent struct {
 	event
 	CoreEventFields
+	MessageID types.MessageID
+}
+
+func (e MessageSentEvent) Validate() error {
+	er := e.CoreEventFields.Validate()
+	if err := e.MessageID.Validate(); err != nil {
+		er = multierr.Append(er, err)
+	}
+	return er
 }
 
 func (e MessageSentEvent) Matches(x any) bool {
@@ -14,7 +27,7 @@ func (e MessageSentEvent) Matches(x any) bool {
 	if !ok {
 		return false
 	}
-	return e.CoreEventFields.Matches(val.CoreEventFields)
+	return e.CoreEventFields.Matches(val.CoreEventFields) && e.MessageID == val.MessageID
 }
 
 func NewMessageSentEvent(
@@ -26,9 +39,9 @@ func NewMessageSentEvent(
 		event: event{},
 		CoreEventFields: CoreEventFields{
 			EventID:   eventID,
-			EventType: TypeMessageEventSent,
+			EventType: TypeMessageSentEvent,
 			RequestID: requestID,
-			MessageID: messageID,
 		},
+		MessageID: messageID,
 	}
 }

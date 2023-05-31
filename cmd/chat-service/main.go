@@ -23,17 +23,21 @@ import (
 	clientevents "github.com/gerladeno/chat-service/internal/server-client/events"
 	clientv1 "github.com/gerladeno/chat-service/internal/server-client/v1"
 	serverdebug "github.com/gerladeno/chat-service/internal/server-debug"
+	managerevents "github.com/gerladeno/chat-service/internal/server-manager/events"
 	managerv1 "github.com/gerladeno/chat-service/internal/server-manager/v1"
 	afcverdictsprocessor "github.com/gerladeno/chat-service/internal/services/afc-verdicts-processor"
-	eventstream "github.com/gerladeno/chat-service/internal/services/event-stream"
 	inmemeventstream "github.com/gerladeno/chat-service/internal/services/event-stream/in-mem"
 	managerload "github.com/gerladeno/chat-service/internal/services/manager-load"
 	inmemmanagerpool "github.com/gerladeno/chat-service/internal/services/manager-pool/in-mem"
+	managerscheduler "github.com/gerladeno/chat-service/internal/services/manager-scheduler"
 	msgproducer "github.com/gerladeno/chat-service/internal/services/msg-producer"
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	clientmessageblockedjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/client-message-blocked"
 	clientmessagesentjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/client-message-sent"
+	closechatjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/close-chat"
+	managerassignedtoproblemjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/manager-assigned-to-problem"
 	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
+	sendmanagermessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-manager-message"
 	"github.com/gerladeno/chat-service/internal/store"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
@@ -46,7 +50,7 @@ func main() {
 	}
 }
 
-func run() (errReturned error) {
+func run() (errReturned error) { //nolint:gocyclo
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -80,6 +84,10 @@ func run() (errReturned error) {
 	managerSwagger, err := managerv1.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("get manager swagger: %v", err)
+	}
+	managerEventSwagger, err := managerevents.GetSwagger()
+	if err != nil {
+		return fmt.Errorf("get manager events swagger: %v", err)
 	}
 
 	// Keycloak
@@ -194,6 +202,18 @@ func run() (errReturned error) {
 		return fmt.Errorf("init afcVerdictProcessor: %v", err)
 	}
 
+	managerScheduler, err := managerscheduler.New(managerscheduler.NewOptions(
+		cfg.Services.ManagerScheduler.Period,
+		managerPool,
+		msgRepo,
+		outboxService,
+		problemsRepo,
+		db,
+	))
+	if err != nil {
+		return fmt.Errorf("init managerScheduler: %v", err)
+	}
+
 	// Init jobs
 	sendClientMessageJob, err := sendclientmessagejob.New(sendclientmessagejob.NewOptions(
 		msgProducer,
@@ -205,6 +225,7 @@ func run() (errReturned error) {
 	}
 	clientMessageSentJob, err := clientmessagesentjob.New(clientmessagesentjob.NewOptions(
 		msgRepo,
+		problemsRepo,
 		eventStream,
 	))
 	if err != nil {
@@ -217,10 +238,40 @@ func run() (errReturned error) {
 	if err != nil {
 		return fmt.Errorf("init client message blocked job: %v", err)
 	}
+	managerAssignedToProblemJob, err := managerassignedtoproblemjob.New(managerassignedtoproblemjob.NewOptions(
+		msgRepo,
+		chatRepo,
+		managerLoad,
+		eventStream,
+	))
+	if err != nil {
+		return fmt.Errorf("init manager assigned to problem job: %v", err)
+	}
+	sendManagerMessageJob, err := sendmanagermessagejob.New(sendmanagermessagejob.NewOptions(
+		chatRepo,
+		msgRepo,
+		eventStream,
+		msgProducer,
+	))
+	if err != nil {
+		return fmt.Errorf("init sendManagerMessageJob: %v", err)
+	}
+	closeChatJob, err := closechatjob.New(closechatjob.NewOptions(
+		chatRepo,
+		msgRepo,
+		eventStream,
+		managerLoad,
+	))
+	if err != nil {
+		return fmt.Errorf("init closeChatJob: %v", err)
+	}
 
 	outboxService.MustRegisterJob(sendClientMessageJob)
 	outboxService.MustRegisterJob(clientMessageSentJob)
 	outboxService.MustRegisterJob(clientMessageBlockedJob)
+	outboxService.MustRegisterJob(managerAssignedToProblemJob)
+	outboxService.MustRegisterJob(sendManagerMessageJob)
+	outboxService.MustRegisterJob(closeChatJob)
 
 	// ws
 	clientWSShutdownCh := make(chan struct{})
@@ -242,7 +293,7 @@ func run() (errReturned error) {
 	managerWSHandler, err := websocketstream.NewHTTPHandler(websocketstream.NewOptions(
 		zap.L(),
 		eventStream,
-		dummyAdapter{},
+		managerevents.Adapter{},
 		websocketstream.JSONEventWriter{},
 		managerWSUpgrader,
 		managerWSShutdownCh,
@@ -257,6 +308,7 @@ func run() (errReturned error) {
 		clientSwagger,
 		managerSwagger,
 		clientEventSwagger,
+		managerEventSwagger,
 	))
 	if err != nil {
 		return fmt.Errorf("init debug server: %v", err)
@@ -273,6 +325,12 @@ func run() (errReturned error) {
 		cfg.Servers.Manager.RequiredAccess.Role,
 		cfg.Servers.Manager.SecWSProtocol,
 
+		db,
+		chatRepo,
+		msgRepo,
+		problemsRepo,
+
+		outboxService,
 		managerLoad,
 		managerPool,
 		managerWSHandler,
@@ -296,6 +354,7 @@ func run() (errReturned error) {
 		msgRepo,
 		chatRepo,
 		problemsRepo,
+
 		outboxService,
 		clientWSHandler,
 	)
@@ -320,19 +379,12 @@ func run() (errReturned error) {
 	eg.Go(func() error { return outboxService.Run(ctx) })
 
 	eg.Go(func() error { return afcVerdictProcessor.Run(ctx) })
-	// Ждут своего часа.
-	// ...
+
+	eg.Go(func() error { return managerScheduler.Run(ctx) })
 
 	if err = eg.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		return fmt.Errorf("wait app stop: %v", err)
 	}
 
 	return nil
-}
-
-// tmp.
-type dummyAdapter struct{}
-
-func (dummyAdapter) Adapt(event eventstream.Event) (any, error) {
-	return event, nil
 }

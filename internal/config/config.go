@@ -79,6 +79,7 @@ type ServiceConfig struct {
 	Outbox              OutboxConfig              `toml:"outbox"`
 	ManagerLoad         ManagerLoadConfig         `toml:"manager_load"`
 	AFCVerdictProcessor AFCVerdictProcessorConfig `toml:"afc_verdicts_processor"`
+	ManagerScheduler    ManagerSchedulerConfig    `toml:"manager_scheduler"`
 }
 
 type MsgProducerConfig struct {
@@ -111,4 +112,8 @@ type AFCVerdictProcessorConfig struct {
 	ProcessBatchSize       int           `toml:"process_batch_size" validate:"min=1,max=1000"`
 	ProcessBatchMaxTimeout time.Duration `toml:"process_batch_max_timeout" validate:"min=50ms,max=10s"`
 	Retries                int           `toml:"retries" validate:"min=1,max=10"`
+}
+
+type ManagerSchedulerConfig struct {
+	Period time.Duration `toml:"period" validate:"required"`
 }

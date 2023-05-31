@@ -15,6 +15,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
+	github.com/imkira/go-observer v1.0.3
 	github.com/jackc/pgx/v5 v5.3.1
 	github.com/kazhuravlev/options-gen v0.28.4
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -24,6 +25,7 @@ require (
 	github.com/onsi/gomega v1.27.6
 	github.com/segmentio/kafka-go v0.4.39
 	github.com/stretchr/testify v1.8.2
+	go.uber.org/atomic v1.7.0
 	go.uber.org/goleak v1.2.1
 	go.uber.org/multierr v1.10.0
 	go.uber.org/zap v1.24.0
@@ -65,7 +67,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/zclconf/go-cty v1.8.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect

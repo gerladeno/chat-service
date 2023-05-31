@@ -90,11 +90,13 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 	zap.L().Named(serviceName).Info("started outbox worker")
 	wg.Wait()
+	zap.L().Named(serviceName).Info("all workers stopped")
 	return nil
 }
 
 func (s *Service) runWorker(ctx context.Context, workerID int) {
-	log := zap.L().With(zap.String("service", serviceName), zap.Int("worker_id", workerID))
+	log := zap.L().Named(serviceName).With(zap.Int("worker_id", workerID))
+	defer log.Info("stopped")
 	var err error
 	for {
 		select {

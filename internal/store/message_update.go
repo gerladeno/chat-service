@@ -57,12 +57,6 @@ func (mu *MessageUpdate) SetChatID(ti types.ChatID) *MessageUpdate {
 	return mu
 }
 
-// SetInitialRequestID sets the "initial_request_id" field.
-func (mu *MessageUpdate) SetInitialRequestID(ti types.RequestID) *MessageUpdate {
-	mu.mutation.SetInitialRequestID(ti)
-	return mu
-}
-
 // SetProblemID sets the "problem_id" field.
 func (mu *MessageUpdate) SetProblemID(ti types.ProblemID) *MessageUpdate {
 	mu.mutation.SetProblemID(ti)
@@ -197,11 +191,6 @@ func (mu *MessageUpdate) check() error {
 			return &ValidationError{Name: "chat_id", err: fmt.Errorf(`store: validator failed for field "Message.chat_id": %w`, err)}
 		}
 	}
-	if v, ok := mu.mutation.InitialRequestID(); ok {
-		if err := v.Validate(); err != nil {
-			return &ValidationError{Name: "initial_request_id", err: fmt.Errorf(`store: validator failed for field "Message.initial_request_id": %w`, err)}
-		}
-	}
 	if v, ok := mu.mutation.ProblemID(); ok {
 		if err := v.Validate(); err != nil {
 			return &ValidationError{Name: "problem_id", err: fmt.Errorf(`store: validator failed for field "Message.problem_id": %w`, err)}
@@ -233,9 +222,6 @@ func (mu *MessageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if mu.mutation.AuthorIDCleared() {
 		_spec.ClearField(message.FieldAuthorID, field.TypeUUID)
-	}
-	if value, ok := mu.mutation.InitialRequestID(); ok {
-		_spec.SetField(message.FieldInitialRequestID, field.TypeUUID, value)
 	}
 	if value, ok := mu.mutation.IsVisibleForClient(); ok {
 		_spec.SetField(message.FieldIsVisibleForClient, field.TypeBool, value)
@@ -353,12 +339,6 @@ func (muo *MessageUpdateOne) ClearAuthorID() *MessageUpdateOne {
 // SetChatID sets the "chat_id" field.
 func (muo *MessageUpdateOne) SetChatID(ti types.ChatID) *MessageUpdateOne {
 	muo.mutation.SetChatID(ti)
-	return muo
-}
-
-// SetInitialRequestID sets the "initial_request_id" field.
-func (muo *MessageUpdateOne) SetInitialRequestID(ti types.RequestID) *MessageUpdateOne {
-	muo.mutation.SetInitialRequestID(ti)
 	return muo
 }
 
@@ -509,11 +489,6 @@ func (muo *MessageUpdateOne) check() error {
 			return &ValidationError{Name: "chat_id", err: fmt.Errorf(`store: validator failed for field "Message.chat_id": %w`, err)}
 		}
 	}
-	if v, ok := muo.mutation.InitialRequestID(); ok {
-		if err := v.Validate(); err != nil {
-			return &ValidationError{Name: "initial_request_id", err: fmt.Errorf(`store: validator failed for field "Message.initial_request_id": %w`, err)}
-		}
-	}
 	if v, ok := muo.mutation.ProblemID(); ok {
 		if err := v.Validate(); err != nil {
 			return &ValidationError{Name: "problem_id", err: fmt.Errorf(`store: validator failed for field "Message.problem_id": %w`, err)}
@@ -562,9 +537,6 @@ func (muo *MessageUpdateOne) sqlSave(ctx context.Context) (_node *Message, err e
 	}
 	if muo.mutation.AuthorIDCleared() {
 		_spec.ClearField(message.FieldAuthorID, field.TypeUUID)
-	}
-	if value, ok := muo.mutation.InitialRequestID(); ok {
-		_spec.SetField(message.FieldInitialRequestID, field.TypeUUID, value)
 	}
 	if value, ok := muo.mutation.IsVisibleForClient(); ok {
 		_spec.SetField(message.FieldIsVisibleForClient, field.TypeBool, value)
