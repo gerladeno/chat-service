@@ -41,6 +41,13 @@ func (Adapter) Adapt(ev eventstream.Event) (any, error) {
 			ChatId:              v.ChatID,
 			ClientId:            v.UserID,
 		})
+	case *eventstream.ChatClosedEvent:
+		event.EventId = v.EventID
+		event.RequestId = v.RequestID
+		err = event.FromChatClosedEvent(ChatClosedEvent{
+			CanTakeMoreProblems: v.CanTakeMoreProblems,
+			ChatId:              v.ChatID,
+		})
 	default:
 		return nil, ErrUnsupportedEventType
 	}

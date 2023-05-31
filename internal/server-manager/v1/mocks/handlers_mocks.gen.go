@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	canreceiveproblems "github.com/gerladeno/chat-service/internal/usecases/manager/can-receive-problems"
+	closechat "github.com/gerladeno/chat-service/internal/usecases/manager/close-chat"
 	freehands "github.com/gerladeno/chat-service/internal/usecases/manager/free-hands"
 	getchathistory "github.com/gerladeno/chat-service/internal/usecases/manager/get-chat-history"
 	getchats "github.com/gerladeno/chat-service/internal/usecases/manager/get-chats"
@@ -203,4 +204,41 @@ func (m *MocksendMessageUseCase) Handle(ctx context.Context, req sendmessage.Req
 func (mr *MocksendMessageUseCaseMockRecorder) Handle(ctx, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MocksendMessageUseCase)(nil).Handle), ctx, req)
+}
+
+// MockcloseChatUseCase is a mock of closeChatUseCase interface.
+type MockcloseChatUseCase struct {
+	ctrl     *gomock.Controller
+	recorder *MockcloseChatUseCaseMockRecorder
+}
+
+// MockcloseChatUseCaseMockRecorder is the mock recorder for MockcloseChatUseCase.
+type MockcloseChatUseCaseMockRecorder struct {
+	mock *MockcloseChatUseCase
+}
+
+// NewMockcloseChatUseCase creates a new mock instance.
+func NewMockcloseChatUseCase(ctrl *gomock.Controller) *MockcloseChatUseCase {
+	mock := &MockcloseChatUseCase{ctrl: ctrl}
+	mock.recorder = &MockcloseChatUseCaseMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockcloseChatUseCase) EXPECT() *MockcloseChatUseCaseMockRecorder {
+	return m.recorder
+}
+
+// Handle mocks base method.
+func (m *MockcloseChatUseCase) Handle(ctx context.Context, req closechat.Request) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Handle", ctx, req)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Handle indicates an expected call of Handle.
+func (mr *MockcloseChatUseCaseMockRecorder) Handle(ctx, req interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockcloseChatUseCase)(nil).Handle), ctx, req)
 }

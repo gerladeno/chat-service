@@ -34,8 +34,10 @@ import (
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	clientmessageblockedjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/client-message-blocked"
 	clientmessagesentjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/client-message-sent"
+	closechatjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/close-chat"
 	managerassignedtoproblemjob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/manager-assigned-to-problem"
 	sendclientmessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-client-message"
+	sendmanagermessagejob "github.com/gerladeno/chat-service/internal/services/outbox/jobs/send-manager-message"
 	"github.com/gerladeno/chat-service/internal/store"
 	websocketstream "github.com/gerladeno/chat-service/internal/websocket-stream"
 )
@@ -48,7 +50,7 @@ func main() {
 	}
 }
 
-func run() (errReturned error) {
+func run() (errReturned error) { //nolint:gocyclo
 	flag.Parse()
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -245,11 +247,31 @@ func run() (errReturned error) {
 	if err != nil {
 		return fmt.Errorf("init manager assigned to problem job: %v", err)
 	}
+	sendManagerMessageJob, err := sendmanagermessagejob.New(sendmanagermessagejob.NewOptions(
+		chatRepo,
+		msgRepo,
+		eventStream,
+		msgProducer,
+	))
+	if err != nil {
+		return fmt.Errorf("init sendManagerMessageJob: %v", err)
+	}
+	closeChatJob, err := closechatjob.New(closechatjob.NewOptions(
+		chatRepo,
+		msgRepo,
+		eventStream,
+		managerLoad,
+	))
+	if err != nil {
+		return fmt.Errorf("init closeChatJob: %v", err)
+	}
 
 	outboxService.MustRegisterJob(sendClientMessageJob)
 	outboxService.MustRegisterJob(clientMessageSentJob)
 	outboxService.MustRegisterJob(clientMessageBlockedJob)
 	outboxService.MustRegisterJob(managerAssignedToProblemJob)
+	outboxService.MustRegisterJob(sendManagerMessageJob)
+	outboxService.MustRegisterJob(closeChatJob)
 
 	// ws
 	clientWSShutdownCh := make(chan struct{})

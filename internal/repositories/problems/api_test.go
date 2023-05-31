@@ -294,3 +294,38 @@ func (s *ProblemsRepoSuite) Test_GetAssignedProblemID() {
 		s.Require().Equal(problemID, pID)
 	})
 }
+
+func (s *ProblemsRepoSuite) Test_ResolveProblem() {
+	s.Run("problem does not exist", func() {
+		_, err := s.repo.ResolveProblem(s.Ctx, types.NewChatID(), types.NewUserID(), types.NewRequestID())
+		s.Require().ErrorIs(err, problemsrepo.ErrProblemNotFound)
+	})
+
+	s.Run("problem is assigned to another manager", func() {
+		managerID := types.NewUserID()
+		chatID, _ := s.createChatWithProblemAssignedTo(types.NewUserID())
+		_, err := s.repo.ResolveProblem(s.Ctx, chatID, managerID, types.NewRequestID())
+		s.Require().ErrorIs(err, problemsrepo.ErrProblemNotFound)
+	})
+
+	s.Run("problem is assigned to this manager but is resolved", func() {
+		managerID := types.NewUserID()
+		chatID, problemID := s.createChatWithProblemAssignedTo(managerID)
+		_, err := s.Database.Problem(s.Ctx).UpdateOneID(problemID).SetResolvedAt(time.Now()).Save(s.Ctx)
+		s.Require().NoError(err)
+		_, err = s.repo.ResolveProblem(s.Ctx, chatID, managerID, types.NewRequestID())
+		s.Require().ErrorIs(err, problemsrepo.ErrProblemNotFound)
+	})
+
+	s.Run("positive", func() {
+		managerID := types.NewUserID()
+		requestID := types.NewRequestID()
+		chatID, _ := s.createChatWithProblemAssignedTo(managerID)
+		problemID, err := s.repo.ResolveProblem(s.Ctx, chatID, managerID, requestID)
+		s.Require().NoError(err)
+		problem, err := s.Database.Problem(s.Ctx).Get(s.Ctx, problemID)
+		s.Require().NoError(err)
+		s.Require().Equal(requestID, problem.ResolvedRequestID)
+		s.Require().NotNil(problem.ResolvedAt)
+	})
+}

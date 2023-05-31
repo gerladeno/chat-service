@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gerladeno/chat-service/internal/store"
 	"github.com/gerladeno/chat-service/internal/store/chat"
@@ -109,12 +110,39 @@ func (r *Repo) GetAssignedProblemID(ctx context.Context, managerID types.UserID,
 	problemID, err := r.db.Problem(ctx).Query().Where(
 		problem.ManagerID(managerID),
 		problem.ChatID(chatID),
+		problem.ResolvedAtIsNil(),
 	).FirstID(ctx)
 	switch {
 	case store.IsNotFound(err):
 		return types.ProblemIDNil, ErrProblemNotFound
 	case err != nil:
 		return types.ProblemIDNil, fmt.Errorf("get assigned problem id: %v", err)
+	}
+	return problemID, nil
+}
+
+func (r *Repo) ResolveProblem(
+	ctx context.Context,
+	chatID types.ChatID,
+	managerID types.UserID,
+	requestID types.RequestID,
+) (types.ProblemID, error) {
+	problemID, err := r.db.Problem(ctx).Query().Where(
+		problem.ChatID(chatID),
+		problem.ManagerID(managerID),
+		problem.ResolvedAtIsNil(),
+	).OnlyID(ctx)
+	switch {
+	case store.IsNotFound(err):
+		return types.ProblemIDNil, ErrProblemNotFound
+	case err != nil:
+		return types.ProblemIDNil, fmt.Errorf("find problem: %v", err)
+	}
+	if _, err = r.db.Problem(ctx).UpdateOneID(problemID).
+		SetResolvedAt(time.Now()).
+		SetResolvedRequestID(requestID).
+		Save(ctx); err != nil {
+		return types.ProblemIDNil, fmt.Errorf("resolve problem: %v", err)
 	}
 	return problemID, nil
 }

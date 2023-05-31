@@ -122,6 +122,22 @@ func (s *ChatsRepoSuite) Test_GetChatsForManager() {
 	})
 }
 
+func (s *ChatsRepoSuite) Test_GetClientID() {
+	s.Run("not found", func() {
+		_, err := s.repo.GetClientID(s.Ctx, types.NewChatID())
+		s.Require().ErrorIs(err, chatsrepo.ErrChatNotFound)
+	})
+
+	s.Run("found", func() {
+		clientID := types.NewUserID()
+		chat, err := s.Database.Chat(s.Ctx).Create().SetClientID(clientID).Save(s.Ctx)
+		s.Require().NoError(err)
+		id, err := s.repo.GetClientID(s.Ctx, chat.ID)
+		s.Require().NoError(err)
+		s.Require().Equal(clientID, id)
+	})
+}
+
 func (s *ChatsRepoSuite) createChatAndProblem(clientID types.UserID) (types.ChatID, types.ProblemID) {
 	s.T().Helper()
 	chat, err := s.Database.Chat(s.Ctx).Create().SetClientID(clientID).Save(s.Ctx)

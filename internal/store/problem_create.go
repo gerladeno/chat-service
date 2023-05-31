@@ -60,6 +60,20 @@ func (pc *ProblemCreate) SetNillableResolvedAt(t *time.Time) *ProblemCreate {
 	return pc
 }
 
+// SetResolvedRequestID sets the "resolved_request_id" field.
+func (pc *ProblemCreate) SetResolvedRequestID(ti types.RequestID) *ProblemCreate {
+	pc.mutation.SetResolvedRequestID(ti)
+	return pc
+}
+
+// SetNillableResolvedRequestID sets the "resolved_request_id" field if the given value is not nil.
+func (pc *ProblemCreate) SetNillableResolvedRequestID(ti *types.RequestID) *ProblemCreate {
+	if ti != nil {
+		pc.SetResolvedRequestID(*ti)
+	}
+	return pc
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (pc *ProblemCreate) SetCreatedAt(t time.Time) *ProblemCreate {
 	pc.mutation.SetCreatedAt(t)
@@ -168,6 +182,11 @@ func (pc *ProblemCreate) check() error {
 			return &ValidationError{Name: "manager_id", err: fmt.Errorf(`store: validator failed for field "Problem.manager_id": %w`, err)}
 		}
 	}
+	if v, ok := pc.mutation.ResolvedRequestID(); ok {
+		if err := v.Validate(); err != nil {
+			return &ValidationError{Name: "resolved_request_id", err: fmt.Errorf(`store: validator failed for field "Problem.resolved_request_id": %w`, err)}
+		}
+	}
 	if _, ok := pc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`store: missing required field "Problem.created_at"`)}
 	}
@@ -222,6 +241,10 @@ func (pc *ProblemCreate) createSpec() (*Problem, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.ResolvedAt(); ok {
 		_spec.SetField(problem.FieldResolvedAt, field.TypeTime, value)
 		_node.ResolvedAt = value
+	}
+	if value, ok := pc.mutation.ResolvedRequestID(); ok {
+		_spec.SetField(problem.FieldResolvedRequestID, field.TypeUUID, value)
+		_node.ResolvedRequestID = value
 	}
 	if value, ok := pc.mutation.CreatedAt(); ok {
 		_spec.SetField(problem.FieldCreatedAt, field.TypeTime, value)
@@ -360,6 +383,24 @@ func (u *ProblemUpsert) ClearResolvedAt() *ProblemUpsert {
 	return u
 }
 
+// SetResolvedRequestID sets the "resolved_request_id" field.
+func (u *ProblemUpsert) SetResolvedRequestID(v types.RequestID) *ProblemUpsert {
+	u.Set(problem.FieldResolvedRequestID, v)
+	return u
+}
+
+// UpdateResolvedRequestID sets the "resolved_request_id" field to the value that was provided on create.
+func (u *ProblemUpsert) UpdateResolvedRequestID() *ProblemUpsert {
+	u.SetExcluded(problem.FieldResolvedRequestID)
+	return u
+}
+
+// ClearResolvedRequestID clears the value of the "resolved_request_id" field.
+func (u *ProblemUpsert) ClearResolvedRequestID() *ProblemUpsert {
+	u.SetNull(problem.FieldResolvedRequestID)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
@@ -464,6 +505,27 @@ func (u *ProblemUpsertOne) UpdateResolvedAt() *ProblemUpsertOne {
 func (u *ProblemUpsertOne) ClearResolvedAt() *ProblemUpsertOne {
 	return u.Update(func(s *ProblemUpsert) {
 		s.ClearResolvedAt()
+	})
+}
+
+// SetResolvedRequestID sets the "resolved_request_id" field.
+func (u *ProblemUpsertOne) SetResolvedRequestID(v types.RequestID) *ProblemUpsertOne {
+	return u.Update(func(s *ProblemUpsert) {
+		s.SetResolvedRequestID(v)
+	})
+}
+
+// UpdateResolvedRequestID sets the "resolved_request_id" field to the value that was provided on create.
+func (u *ProblemUpsertOne) UpdateResolvedRequestID() *ProblemUpsertOne {
+	return u.Update(func(s *ProblemUpsert) {
+		s.UpdateResolvedRequestID()
+	})
+}
+
+// ClearResolvedRequestID clears the value of the "resolved_request_id" field.
+func (u *ProblemUpsertOne) ClearResolvedRequestID() *ProblemUpsertOne {
+	return u.Update(func(s *ProblemUpsert) {
+		s.ClearResolvedRequestID()
 	})
 }
 
@@ -734,6 +796,27 @@ func (u *ProblemUpsertBulk) UpdateResolvedAt() *ProblemUpsertBulk {
 func (u *ProblemUpsertBulk) ClearResolvedAt() *ProblemUpsertBulk {
 	return u.Update(func(s *ProblemUpsert) {
 		s.ClearResolvedAt()
+	})
+}
+
+// SetResolvedRequestID sets the "resolved_request_id" field.
+func (u *ProblemUpsertBulk) SetResolvedRequestID(v types.RequestID) *ProblemUpsertBulk {
+	return u.Update(func(s *ProblemUpsert) {
+		s.SetResolvedRequestID(v)
+	})
+}
+
+// UpdateResolvedRequestID sets the "resolved_request_id" field to the value that was provided on create.
+func (u *ProblemUpsertBulk) UpdateResolvedRequestID() *ProblemUpsertBulk {
+	return u.Update(func(s *ProblemUpsert) {
+		s.UpdateResolvedRequestID()
+	})
+}
+
+// ClearResolvedRequestID clears the value of the "resolved_request_id" field.
+func (u *ProblemUpsertBulk) ClearResolvedRequestID() *ProblemUpsertBulk {
+	return u.Update(func(s *ProblemUpsert) {
+		s.ClearResolvedRequestID()
 	})
 }
 

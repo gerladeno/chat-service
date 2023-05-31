@@ -57,3 +57,14 @@ func (r *Repo) GetChatsForManager(ctx context.Context, managerID types.UserID) (
 	}
 	return result, nil
 }
+
+func (r *Repo) GetClientID(ctx context.Context, chatID types.ChatID) (types.UserID, error) {
+	c, err := r.db.Chat(ctx).Get(ctx, chatID)
+	switch {
+	case store.IsNotFound(err):
+		return types.UserIDNil, ErrChatNotFound
+	case err != nil:
+		return types.UserIDNil, fmt.Errorf("get chat by id: %v", err)
+	}
+	return c.ClientID, nil
+}

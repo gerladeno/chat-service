@@ -85,6 +85,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/SendMessageResponse"
 
+  /closeChat:
+    post:
+      description: Close chat's active problem.
+      parameters:
+        - $ref: '#/components/parameters/XRequestIDHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseChatRequest'
+      responses:
+        200:
+          description: Problem resolved, chat closed for manager.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloseChatResponse'
+
 security:
   - bearerAuth: [ ]
 
@@ -124,8 +143,10 @@ components:
       description: contains HTTP error codes and specific business logic error codes (the last must be >= 1000).
       enum:
         - 5000
+        - 5001
       x-enum-varnames:
         - ErrorCodeManagerOverloaded
+        - ErrorCodeNoActiveProblem
       minimum: 400
 
     ChatId:
@@ -271,3 +292,14 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    CloseChatRequest:
+      $ref: '#/components/schemas/ChatId'
+
+    CloseChatResponse:
+      properties:
+        data:
+          type: string
+          nullable: true
+        error:
+          $ref: "#/components/schemas/Error"

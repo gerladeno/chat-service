@@ -118,7 +118,7 @@ func idsFromPayload(payload string) (types.MessageID, types.UserID, error) {
 	}
 	managerID, err := types.Parse[types.UserID](parts[1])
 	if err != nil {
-		return types.MessageIDNil, types.UserIDNil, fmt.Errorf("parsing messageID: %v", err)
+		return types.MessageIDNil, types.UserIDNil, fmt.Errorf("parsing managerID: %v", err)
 	}
 	return msgID, managerID, nil
 }

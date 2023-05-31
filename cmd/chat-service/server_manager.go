@@ -21,6 +21,7 @@ import (
 	"github.com/gerladeno/chat-service/internal/services/outbox"
 	"github.com/gerladeno/chat-service/internal/store"
 	canreceiveproblems "github.com/gerladeno/chat-service/internal/usecases/manager/can-receive-problems"
+	closechat "github.com/gerladeno/chat-service/internal/usecases/manager/close-chat"
 	freehands "github.com/gerladeno/chat-service/internal/usecases/manager/free-hands"
 	getchathistory "github.com/gerladeno/chat-service/internal/usecases/manager/get-chat-history"
 	getchats "github.com/gerladeno/chat-service/internal/usecases/manager/get-chats"
@@ -84,6 +85,15 @@ func initServerManager(
 	if err != nil {
 		return nil, fmt.Errorf("init sendManagerMessageUseCase: %v", err)
 	}
+	closeChatUseCase, err := closechat.New(closechat.NewOptions(
+		msgRepo,
+		problemsRepo,
+		outboxService,
+		db,
+	))
+	if err != nil {
+		return nil, fmt.Errorf("init closeChatUseCase: %v", err)
+	}
 
 	v1Handlers, err := managerv1.NewHandlers(managerv1.NewOptions(
 		lg,
@@ -92,6 +102,7 @@ func initServerManager(
 		getChatsUseCase,
 		gerChatHistoryUseCase,
 		sendManagerMessageUseCase,
+		closeChatUseCase,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("initing v1Handlers: %v", err)

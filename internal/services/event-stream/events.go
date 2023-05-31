@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	TypeMessageEventSent    = `MessageSentEvent`
-	TypeMessageEventBlocked = `MessageBlockedEvent`
+	TypeMessageSentEvent    = `MessageSentEvent`
+	TypeMessageBlockedEvent = `MessageBlockedEvent`
 	TypeNewMessageEvent     = `NewMessageEvent`
 	TypeNewChatEvent        = `NewChatEvent`
+	TypeChatClosedEvent     = `ChatClosedEvent`
 )
 
 type Event interface {

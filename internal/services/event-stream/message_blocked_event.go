@@ -39,7 +39,7 @@ func NewMessageBlockedEvent(
 		event: event{},
 		CoreEventFields: CoreEventFields{
 			EventID:   eventID,
-			EventType: TypeMessageEventBlocked,
+			EventType: TypeMessageBlockedEvent,
 			RequestID: requestID,
 		},
 		MessageID: messageID,

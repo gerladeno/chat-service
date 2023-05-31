@@ -21,6 +21,7 @@ func (Problem) Fields() []ent.Field {
 		field.UUID("chat_id", types.ChatID{}),
 		field.UUID("manager_id", types.UserID{}).Optional(),
 		field.Time("resolved_at").Optional(),
+		field.UUID("resolved_request_id", types.RequestID{}).Optional(),
 		newCreatedAtField(),
 	}
 }
