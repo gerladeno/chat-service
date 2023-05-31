@@ -9,6 +9,7 @@ import (
 
 type Message struct {
 	ID                  types.MessageID
+	RequestID           types.RequestID
 	ChatID              types.ChatID
 	AuthorID            types.UserID
 	Body                string
@@ -22,6 +23,7 @@ type Message struct {
 func adaptStoreMessage(m *store.Message) Message {
 	return Message{
 		ID:                  m.ID,
+		RequestID:           m.InitialRequestID,
 		ChatID:              m.ChatID,
 		AuthorID:            m.AuthorID,
 		Body:                m.Body,

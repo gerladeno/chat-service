@@ -3,6 +3,8 @@ package outbox
 import (
 	"context"
 	"time"
+
+	"github.com/gerladeno/chat-service/internal/types"
 )
 
 type Job interface {
@@ -35,4 +37,11 @@ func (j DefaultJob) ExecutionTimeout() time.Duration {
 
 func (j DefaultJob) MaxAttempts() int {
 	return defaultMaxAttempts
+}
+
+func MarshalPayload(messageID types.MessageID) (string, error) {
+	if messageID.IsZero() {
+		return "", types.ErrEntityIsNil
+	}
+	return messageID.String(), nil
 }

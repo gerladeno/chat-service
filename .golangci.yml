@@ -36,7 +36,7 @@ linters-settings:
   tagliatelle:
     case:
       rules:
-        json: goCamel
+        json: camel
         db: goSnake
 
 linters:

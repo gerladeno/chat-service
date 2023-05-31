@@ -11,6 +11,7 @@ import (
 
 	jobsrepo "github.com/gerladeno/chat-service/internal/repositories/jobs"
 	"github.com/gerladeno/chat-service/internal/types"
+	"github.com/gerladeno/chat-service/pkg/utils"
 )
 
 const (
@@ -105,7 +106,7 @@ func (s *Service) runWorker(ctx context.Context, workerID int) {
 		switch {
 		case errors.Is(err, jobsrepo.ErrNoJobs):
 			log.Debug(fmt.Sprintf("out of jobs, idling for %d milliseconds", s.idleTime.Milliseconds()))
-			time.Sleep(s.idleTime)
+			utils.Sleep(ctx, s.idleTime)
 		case err != nil:
 			log.With(zap.Error(err)).Warn("execution failed, proceeding")
 		}
@@ -124,7 +125,7 @@ func (s *Service) execute(ctx context.Context, log *zap.Logger) (err error) {
 	l.Info("executing task")
 	defer func() {
 		if err == nil {
-			l.Info("success")
+			l.Debug("success")
 		} else {
 			l.Warn("failed")
 		}
@@ -145,6 +146,7 @@ func (s *Service) execute(ctx context.Context, log *zap.Logger) (err error) {
 		}
 		return fmt.Errorf("handling a job %v: %v", task, err)
 	}
+	// Сюда мы попадаем, если джоба успешно выполнена. Даже если контекст истёк, её надо удалить.
 	if err = s.jobsRepo.DeleteJob(context.Background(), task.ID); err != nil {
 		return fmt.Errorf("delete successfully handled job: %v", err)
 	}

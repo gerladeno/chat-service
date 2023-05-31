@@ -4,31 +4,13 @@ version: '3'
 silent: true
 
 vars:
-  GO_MODULE: github.com/gerladeno/chat-service
-  GO_FILES:
-    sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./internal/store/*" -not -path "*.gen.go" | tr "\n" " "
+  CLIENT_EVENTS_SRC: ./api/client.events.swagger.yml
+  CLIENT_EVENTS_DST: ./internal/server-client/events/events.gen.go
+  CLIENT_EVENTS_PKG: clientevents
 
-  GOLANGCI_LINT_VERSION: v1.52.2
-  GOLANGCI_LINT_CACHE:
-    sh: echo "$HOME/misc/caches"
-
-  DOCKER_COMPOSE_PATHS: |
-    ./deploy/local/docker-compose.yml
-    ./deploy/local/docker-compose.sentry.yml
-    ./deploy/local/docker-compose.swagger-ui.yml
-  DOCKER_COMPOSE_CMD:
-    docker compose{{range $i, $line := .DOCKER_COMPOSE_PATHS | trim | splitLines}} -f "{{$line}}"{{end}}
-
-  TYPES: |
-    ChatID
-    MessageID
-    ProblemID
-    UserID
-    RequestID
-    JobID
-    FailedJobID
-  TYPES_PKG: types
-  TYPES_DST: ./internal/types/types.gen.go
+  CLIENT_V1_SRC: ./api/client.v1.swagger.yml
+  CLIENT_V1_DST: ./internal/server-client/v1/server.gen.go
+  CLIENT_V1_PKG: clientv1
 
   DEV_TOOLS: |
     github.com/daixiang0/gci@v0.8.0
@@ -39,18 +21,44 @@ vars:
     github.com/golang/mock/mockgen@v1.6.0
     github.com/onsi/ginkgo/v2/ginkgo@v2.9.2
 
+  DOCKER_COMPOSE_PATHS: |
+    ./deploy/local/docker-compose.yml
+    ./deploy/local/docker-compose.sentry.yml
+    ./deploy/local/docker-compose.swagger-ui.yml
+  DOCKER_COMPOSE_CMD:
+    docker compose{{range $i, $line := .DOCKER_COMPOSE_PATHS | trim | splitLines}} -f "{{$line}}"{{end}}
+
+  E2E_CLIENT_V1_DST: ./tests/e2e/api/client/v1/client.gen.go
+  E2E_CLIENT_V1_PKG: apiclientv1
+
+  E2E_CLIENT_EVENTS_DST: ./tests/e2e/api/client/events/events.gen.go
+  E2E_CLIENT_EVENTS_PKG: apiclientevents
+
   ENT_SCHEMA: ./internal/store/schema
 
-  CLIENT_V1_SRC: ./api/client.v1.swagger.yml
-  CLIENT_V1_DST: ./internal/server-client/v1/server.gen.go
-  CLIENT_V1_PKG: clientv1
+  GO_MODULE: github.com/gerladeno/chat-service
+  GO_FILES:
+    sh: find . -type f -name '*.go' -not -path "./vendor/*" -not -path "./internal/store/*" -not -path "*.gen.go" | tr "\n" " "
+
+  GOLANGCI_LINT_VERSION: v1.52.2
+  GOLANGCI_LINT_CACHE:
+    sh: echo "$HOME/misc/caches"
 
   MANAGER_V1_SRC: ./api/manager.v1.swagger.yml
   MANAGER_V1_DST: ./internal/server-manager/v1/server.gen.go
   MANAGER_V1_PKG: managerv1
 
-  E2E_CLIENT_V1_DST: ./tests/e2e/api/client/v1/client.gen.go
-  E2E_CLIENT_V1_PKG: apiclientv1
+  TYPES: |
+    ChatID
+    EventID
+    FailedJobID
+    JobID
+    MessageID
+    ProblemID
+    RequestID
+    UserID
+  TYPES_PKG: types
+  TYPES_DST: ./internal/types/types.gen.go
 
 tasks:
   default:
@@ -130,18 +138,22 @@ tasks:
 
   ent:gen:
     cmds:
-      - go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert --feature sql/lock --target ./internal/store --template ./internal/store/templates/ ./internal/store/schema
+      - go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert,sql/lock --target ./internal/store --template ./internal/store/templates/ {{.ENT_SCHEMA}}
       - task: tidy
 
   gen:api:
     cmds:
       - oapi-codegen -old-config-style -package {{ .CLIENT_V1_PKG }} {{ $.CLIENT_V1_SRC }} > {{ $.CLIENT_V1_DST }}
       - oapi-codegen -old-config-style -package {{ .MANAGER_V1_PKG }} {{ $.MANAGER_V1_SRC }} > {{ $.MANAGER_V1_DST }}
+      - echo "Generate client events..."
+      - oapi-codegen --old-config-style -generate skip-prune,types,spec -package {{.CLIENT_EVENTS_PKG}} {{.CLIENT_EVENTS_SRC}} > {{.CLIENT_EVENTS_DST}}
 
   gen:e2e:
     cmds:
       - echo "[E2E] Generate client API..."
       - oapi-codegen --old-config-style -generate types,client -package {{.E2E_CLIENT_V1_PKG}} {{.CLIENT_V1_SRC}} > {{.E2E_CLIENT_V1_DST}}
+      - echo "[E2E] Generate client events..."
+      - oapi-codegen --old-config-style -generate skip-prune,types -package {{.E2E_CLIENT_EVENTS_PKG}} {{.CLIENT_EVENTS_SRC}} > {{.E2E_CLIENT_EVENTS_DST}}
 
   deps:
     cmds:
@@ -209,12 +221,15 @@ tasks:
   tests:e2e:
     env:
       E2E_CLIENT_V1_API_ENDPOINT: http://localhost:8080/v1
+      E2E_CLIENT_WS_ENDPOINT: ws://localhost:8080/ws
+      E2E_CLIENT_WS_SEC_PROTOCOL: chat-service-protocol
+      E2E_CLIENT_WS_ORIGIN: http://localhost:3000 # Emulate client UI.
       E2E_KEYCLOAK_BASE_PATH: http://localhost:3010
       E2E_KEYCLOAK_REALM: Bank
       E2E_KEYCLOAK_CLIENT_ID: e2e-testing
       E2E_KEYCLOAK_CLIENT_SECRET: kOAz2cUJ9Kur3HNPOd5R3vwLhZL9TskT
       E2E_KEYCLOAK_CLIENT_DEBUG: false
-      E2E_KEYCLOAK_CLIENTS: e2e_client_0,e2e_client_1
+      E2E_KEYCLOAK_CLIENTS: e2e_client_0,e2e_client_1,e2e_client_2,e2e_client_3
     cmds:
       - echo "- End-to-end tests..."
       # NOTE: It's important to run tests serial (without `-p` flag) – for correct `clientsPool` sharing.

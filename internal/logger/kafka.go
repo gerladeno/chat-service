@@ -8,11 +8,16 @@ import (
 var _ kafka.Logger = (*KafkaAdapted)(nil)
 
 type KafkaAdapted struct {
-	log *zap.Logger
+	forErrors bool
+	log       *zap.Logger
 }
 
-func (k KafkaAdapted) Printf(s string, i ...interface{}) {
-	k.log.Sugar().Info(s, i)
+func (k *KafkaAdapted) Printf(s string, args ...interface{}) {
+	if k.forErrors {
+		k.log.Sugar().Errorf(s, args...)
+	} else {
+		k.log.Sugar().Debugf(s, args...)
+	}
 }
 
 func NewKafkaAdapted() *KafkaAdapted {
@@ -21,14 +26,12 @@ func NewKafkaAdapted() *KafkaAdapted {
 	}
 }
 
-func (k KafkaAdapted) WithServiceName(name string) *KafkaAdapted {
-	return &KafkaAdapted{
-		log: k.log.With(zap.String("service_name", name)),
-	}
+func (k *KafkaAdapted) WithServiceName(name string) *KafkaAdapted {
+	k.log = k.log.Named(name)
+	return k
 }
 
-func (k KafkaAdapted) ForErrors() *KafkaAdapted {
-	return &KafkaAdapted{
-		log: k.log.With(zap.String("no_clue", "error")),
-	}
+func (k *KafkaAdapted) ForErrors() *KafkaAdapted {
+	k.forErrors = true
+	return k
 }

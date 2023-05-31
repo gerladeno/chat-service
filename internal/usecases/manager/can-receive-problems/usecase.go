@@ -38,6 +38,7 @@ func (u UseCase) Handle(ctx context.Context, req Request) (Response, error) {
 	if err := req.Validate(); err != nil {
 		return Response{}, fmt.Errorf("request validation: %v", err)
 	}
+
 	contains, err := u.managerPool.Contains(ctx, req.ManagerID)
 	if err != nil {
 		return Response{}, fmt.Errorf("check if manager pool contains specified manager id already: %v", err)
@@ -45,6 +46,7 @@ func (u UseCase) Handle(ctx context.Context, req Request) (Response, error) {
 	if contains {
 		return Response{Result: false}, nil
 	}
+
 	can, err := u.managerLoadService.CanManagerTakeProblem(ctx, req.ManagerID)
 	if err != nil {
 		return Response{}, fmt.Errorf("check if managers capacity is already exceeded: %v", err)

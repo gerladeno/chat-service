@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 
+	"go.uber.org/zap"
+
 	managerpool "github.com/gerladeno/chat-service/internal/services/manager-pool"
 	"github.com/gerladeno/chat-service/internal/types"
 )
@@ -23,6 +25,7 @@ type Service struct {
 }
 
 func New() *Service {
+	zap.L().Named(serviceName).Info("started")
 	return &Service{
 		managers: make(map[types.UserID]struct{}),
 	}

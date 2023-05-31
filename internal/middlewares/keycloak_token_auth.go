@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
@@ -25,11 +26,12 @@ type Introspector interface {
 
 // NewKeycloakTokenAuth returns a middleware that implements "active" authentication:
 // each request is verified by the Keycloak server.
-func NewKeycloakTokenAuth(introspector Introspector, resource, role string) echo.MiddlewareFunc {
+func NewKeycloakTokenAuth(introspector Introspector, resource, role, protocol string) echo.MiddlewareFunc {
 	return middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
-		KeyLookup:  "header:Authorization,header:X-Request-ID",
+		KeyLookup:  "header:Authorization,header:X-Request-ID,header:Sec-WebSocket-Protocol",
 		AuthScheme: "Bearer",
 		Validator: func(tokenStr string, eCtx echo.Context) (bool, error) {
+			tokenStr = strings.TrimPrefix(tokenStr, fmt.Sprintf("%s, ", protocol))
 			token, err := introspector.IntrospectToken(eCtx.Request().Context(), tokenStr)
 			if err != nil {
 				return false, fmt.Errorf("token validation: %w", err)

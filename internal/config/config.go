@@ -41,6 +41,7 @@ type SentryConfig struct {
 type ServerConfig struct {
 	Addr           string         `toml:"addr" validate:"required,hostname_port"`
 	AllowOrigins   []string       `toml:"allow_origins" validate:"required"`
+	SecWSProtocol  string         `toml:"sec_ws_protocol" validate:"required"`
 	RequiredAccess RequiredAccess `toml:"required_access" validate:"required"`
 }
 
@@ -74,9 +75,10 @@ type PGConfig struct {
 }
 
 type ServiceConfig struct {
-	MsgProducer MsgProducerConfig `toml:"msg_producer"`
-	Outbox      OutboxConfig      `toml:"outbox"`
-	ManagerLoad ManagerLoadConfig `toml:"manager_load"`
+	MsgProducer         MsgProducerConfig         `toml:"msg_producer"`
+	Outbox              OutboxConfig              `toml:"outbox"`
+	ManagerLoad         ManagerLoadConfig         `toml:"manager_load"`
+	AFCVerdictProcessor AFCVerdictProcessorConfig `toml:"afc_verdicts_processor"`
 }
 
 type MsgProducerConfig struct {
@@ -94,4 +96,19 @@ type OutboxConfig struct {
 
 type ManagerLoadConfig struct {
 	MaxProblemsAtSameTime int `toml:"max_problems_at_same_time" validate:"required,min=1,max=30"`
+}
+
+type AFCVerdictProcessorConfig struct {
+	BackoffInitialInterval time.Duration `toml:"backoff_initial_interval" validate:"min=50ms,max=1s"`
+	BackoffMaxElapsedTime  time.Duration `toml:"backoff_max_elapsed_time" validate:"min=500ms,max=1m"`
+	BackoffFactor          float64       `toml:"backoff_factor" validate:"min=1.01,max=10"`
+	Brokers                []string      `toml:"brokers" validate:"required,dive,hostname_port"`
+	Consumers              int           `toml:"consumers" validate:"required,min=1"`
+	ConsumerGroup          string        `toml:"consumer_group" validate:"required"`
+	VerdictTopic           string        `toml:"verdict_topic" validate:"required"`
+	VerdictSignKey         string        `toml:"verdicts_signing_public_key"`
+	VerdictTopicDLQ        string        `toml:"verdict_topic_dlq" validate:"required"`
+	ProcessBatchSize       int           `toml:"process_batch_size" validate:"min=1,max=1000"`
+	ProcessBatchMaxTimeout time.Duration `toml:"process_batch_max_timeout" validate:"min=50ms,max=10s"`
+	Retries                int           `toml:"retries" validate:"min=1,max=10"`
 }
